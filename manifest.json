@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "Lantern",
+  "version": "0.1.59",
+  "description": "Atlas-style browsing with local models via llama.cpp — page-aware chat, quick actions, and a smarter new tab.",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "activeTab",
+    "scripting",
+    "contextMenus",
+    "tabs",
+    "bookmarks",
+    "favicon"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Lantern",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab/newtab.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*", "assets/providers/*", "icons/*"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}
