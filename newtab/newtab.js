@@ -26,8 +26,11 @@ async function init() {
   const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
   settings = res?.settings || {};
   if (settings.newtabEnabled === false) {
+    // Strip all extension CSS and content to show a truly blank page
+    document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
+    document.title = '';
     document.body.innerHTML = '';
-    document.title = 'New Tab';
+    document.body.style.background = '';
     return;
   }
   updateEndpointLabel();
