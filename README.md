@@ -1,104 +1,113 @@
 # Lantern
 
-**Atlas-style browsing with local models** — a Chrome extension that puts a page-aware AI sidebar next to every tab, powered by your own [llama.cpp](https://github.com/ggml-org/llama.cpp) server.
-
-Default server: `http://192.168.1.129:8084`
+**AI sidebar for every tab** — a Chrome extension that puts a page-aware AI assistant next to every page. Works with local models via [llama.cpp](https://github.com/ggml-org/llama.cpp) or any OpenAI/Anthropic-compatible cloud provider.
 
 ## Features
 
 | Feature | What it does |
-|--------|----------------|
-| **Side panel chat** | Click the toolbar icon (or use context menus) for a ChatGPT-Atlas-style assistant |
-| **Page context** | Sends title, URL, selection, and readable page text to the model (when Visible is on) |
+|---------|-------------|
+| **Side panel chat** | Click the toolbar icon for an always-available AI assistant |
+| **Multiple providers** | Local (llama.cpp), OpenRouter, OpenAI, Anthropic, Groq, xAI, NVIDIA, OpenCode Go |
+| **Agent mode** | Browser automation — open tabs, navigate, click, type, search |
+| **Search tools** | `web_search` + `read_url` for live research via SearXNG, Exa, ParallelSearch, or Tinyfish |
+| **Page context** | Sends title, URL, selection, and readable text to the model (when Visible is on) |
 | **Quick actions** | Summarize, key points, explain, critique, rewrite selection |
 | **Selection toolbar** | Highlight text → Ask / Explain / Rewrite |
-| **Context menus** | Right-click selection or page |
-| **New tab** | **Enter** → SearXNG web search · **Tab** → ask the LLM |
-| **LLM tools** | `web_search` (SearXNG) + `read_url` for live research |
-| **New-tab pins** | Custom shortcuts stored only in Lantern (not browser bookmarks); star / right‑click to pin |
+| **Context menus** | Right-click selection or page to send to Lantern |
+| **New tab** | Optional replacement — **Enter** searches, **Tab** queries the LLM |
+| **New-tab pins** | Custom shortcuts stored in Lantern (not browser bookmarks) |
 | **Privacy toggle** | Per-site “Visible” control — block pages from being sent to the model |
-| **Streaming** | Token streaming from `/v1/chat/completions` |
-| **Settings** | Endpoint, model, temperature, system prompt, context limits |
-
-**Agent mode** (opt-in in Settings) can open tabs, navigate, click, and type with confirmation for mutations. **Memories** store local notes (manual or proposed after replies) and inject them into the system prompt when enabled.
+| **Memories** | Local notes injected into the system prompt; optional auto-extract after replies |
+| **Streaming** | Token streaming from any OpenAI-compatible `/v1/chat/completions` endpoint |
+| **Setup wizard** | First-launch flow that guides through provider and search configuration |
 
 ## Install (Chrome / Edge / Brave)
 
 1. Open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode**.
-3. **Load unpacked** → select this folder (`browser-launch-page`).
+3. **Load unpacked** → select this folder.
 4. Pin **Lantern** and open the side panel from the toolbar icon.
-5. Open **Settings** (gear in the panel) if you need to change the endpoint.
 
-If Chrome asks for **local network access**, allow it so the extension can reach `192.168.1.x`.
+On first launch the setup wizard will guide you through picking a provider and entering your API key. You can also open **Settings** anytime from the panel menu.
 
-## llama.cpp server
+## Providers
 
-Example:
+| Provider | Kind | Needs key |
+|----------|------|-----------|
+| Local (llama.cpp) | OpenAI-compatible | No (endpoint only) |
+| OpenRouter | OpenAI-compatible | Yes |
+| OpenAI | OpenAI-compatible | Yes |
+| Groq | OpenAI-compatible | Yes |
+| Anthropic | Anthropic Messages API | Yes |
+| xAI | OpenAI-compatible | Yes |
+| NVIDIA NIM | OpenAI-compatible | Yes |
+| [OpenCode Go](https://opencode.ai/docs/go/) | OpenAI-compatible | Yes |
 
-```bash
-llama-server -m /path/to/model.gguf --host 0.0.0.0 --port 8084 -c 8192
-```
+Add API keys in **Settings**. Keys stay in `chrome.storage.sync`.
 
-Requirements:
+## Search providers
 
-- Reachable from your browser machine at the configured endpoint
-- OpenAI-compatible **`POST /v1/chat/completions`** (llama.cpp server provides this)
-- Optional: `GET /v1/models`, `GET /health`
+| Provider | Type | Needs key |
+|----------|------|-----------|
+| SearXNG | Self-hosted meta-search | No |
+| Exa | Neural search API | Yes |
+| ParallelSearch | AI-powered search | Yes |
+| Tinyfish | Lightweight search API | Yes |
 
-No API key is required for a typical local setup.
+Configure in **Settings** → Web search. The LLM uses the selected provider when it runs `web_search`.
 
-### Firewall / LAN
+## Agent mode
 
-- Bind with `--host 0.0.0.0` (not only `127.0.0.1`) if the browser runs on another device
-- Allow TCP `8084` on the machine running llama.cpp
+Opt-in in Settings. When enabled, switch the composer toggle to **Agent** and the model can:
 
-## Usage
+- Open tabs and navigate to URLs
+- Click buttons and links (by snapshot refs)
+- Type into inputs and press keys
+- Search the page for text (`browser_find`)
+- Read page content
 
-1. Browse any page.
-2. Open Lantern (toolbar icon).
-3. Leave **Visible** on for page-aware answers; turn it off on sensitive sites.
-4. Use quick actions, type a question, or highlight text and use the floating toolbar.
-5. **Alt+L** on a selection also sends it to Lantern (via content script).
+Mutation actions (click, type, press) ask for confirmation by default. The sidebar agent opens tabs in the foreground since the panel stays visible.
 
 ## Project layout
 
 ```
 manifest.json
-background/service-worker.js   # API calls, page extract, context menus
-sidepanel/                     # Main Atlas-like chat UI
-content/                       # Selection toolbar
-newtab/                        # New tab page
-options/                       # Settings
-shared/                        # Defaults, storage, API client, markdown
+background.js                 # Service worker, API calls, tool dispatch
+sidepanel/                    # Side panel chat UI
+chat/                         # Full-page chat UI
+content/                      # Selection toolbar & agent content script
+newtab/                       # Optional new tab page
+options/                      # Settings page
+setup/                        # First-launch setup wizard
+shared/                       # Defaults, storage, API client, markdown, model icons, search
+assets/providers/             # Monochrome provider SVG icons
 icons/
 ```
 
 ## Settings reference
 
 | Setting | Default |
-|--------|---------|
+|---------|---------|
 | Endpoint | `http://192.168.1.129:8084` |
+| Provider | `local` |
 | Model | empty (server default) |
 | Temperature | `0.7` |
 | Max tokens | `2048` |
 | Max page chars | `12000` |
 | Stream | on |
+| Tools enabled | on |
+| Search provider | `searxng` |
+| Max tool rounds | 4 |
+| Agent mode allowed | off |
+| New tab enabled | on |
 
 ## Privacy notes
 
-- All inference goes to **your** llama.cpp host — nothing is sent to OpenAI.
-- Page content is only included when the site is **Visible** and “Use page” is checked.
+- Cloud provider keys are stored in `chrome.storage.sync` (synced to your Google account if enabled).
+- Page content is only sent when the site is **Visible** and the toggle is on.
 - Chat history is stored in `chrome.storage.local` per tab (capped).
-- Optional “browser memories” stay local; off by default.
-
-## Roadmap ideas
-
-- [ ] Optional browser memories that auto-summarize visited pages
-- [ ] Multi-tab context (“compare these tabs”)
-- [ ] Lightweight agent mode (scripted clicks — careful, high risk)
-- [ ] Firefox support
-- [ ] Keyboard command palette
+- Memories stay local; off by default.
+- When using a local llama.cpp server, all inference runs on your machine.
 
 ## License
 
