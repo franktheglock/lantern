@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Set up Lantern</title>
+  <link rel="stylesheet" href="setup.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="../shared/theme-boot.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <span class="mark" aria-hidden="true"></span>
+      <span class="brand">Lantern</span>
+    </header>
+
+    <div class="steps" id="steps">
+      <!-- Step 1: Provider -->
+      <section class="step" id="step-1">
+        <h1>Choose a model provider</h1>
+        <p class="desc">Pick where your AI runs. You can change this later in Settings.</p>
+        <div class="provider-cards" id="provider-cards"></div>
+        <div class="step-nav">
+          <button type="button" class="btn btn-primary" id="step1-next" disabled>Next</button>
+        </div>
+      </section>
+
+      <!-- Step 2: API key -->
+      <section class="step" id="step-2" hidden>
+        <h1>Enter your API key</h1>
+        <p class="desc" id="step2-desc">Paste your key from the provider's dashboard.</p>
+        <div class="key-row">
+          <input type="password" id="step2-key" placeholder="Paste your key…" autocomplete="off" />
+          <button type="button" class="btn btn-secondary" id="step2-paste" title="Paste from clipboard">Paste</button>
+        </div>
+        <div class="step-nav">
+          <button type="button" class="btn btn-secondary" id="step2-back">Back</button>
+          <button type="button" class="btn btn-primary" id="step2-next" disabled>Next</button>
+        </div>
+      </section>
+
+      <!-- Step 3: Search provider -->
+      <section class="step" id="step-3" hidden>
+        <h1>Set up search (optional)</h1>
+        <p class="desc">The LLM can search the web. Choose a provider or skip to finish.</p>
+        <div class="search-options" id="search-options"></div>
+        <div class="search-field" id="search-field" hidden>
+          <input type="password" id="step3-key" placeholder="API key…" autocomplete="off" />
+        </div>
+        <div class="step-nav">
+          <button type="button" class="btn btn-secondary" id="step3-back">Back</button>
+          <button type="button" class="btn btn-secondary" id="step3-skip">Skip</button>
+          <button type="button" class="btn btn-primary" id="step3-next" disabled>Next</button>
+        </div>
+      </section>
+
+      <!-- Step 4: Done -->
+      <section class="step" id="step-4" hidden>
+        <h1>All set!</h1>
+        <p class="desc" id="step4-desc">Your configuration is saved. You can start chatting now.</p>
+        <div class="step-nav">
+          <button type="button" class="btn btn-primary" id="step4-done">Open Lantern</button>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script type="module" src="setup.js"></script>
+</body>
+</html>

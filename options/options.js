@@ -29,6 +29,10 @@ const fields = [
   'keyXai',
   'keyNvidia',
   'keyOpencodego',
+  'keyExa',
+  'keyParallel',
+  'keyTinyfish',
+  'searchProvider',
 ];
 
 const form = document.getElementById('form');
@@ -74,6 +78,22 @@ async function init() {
       if (!ok) e.target.checked = false;
     }
   });
+
+  // Search provider toggle
+  const searchProvider = document.getElementById('searchProvider');
+  if (searchProvider) {
+    searchProvider.addEventListener('change', () => {
+      const val = searchProvider.value;
+      document.querySelectorAll('.search-provider-fields').forEach((el) => {
+        el.hidden = el.id !== 'search-fields-' + val;
+      });
+    });
+    // Apply initial state
+    const initVal = searchProvider.value || 'searxng';
+    document.querySelectorAll('.search-provider-fields').forEach((el) => {
+      el.hidden = el.id !== 'search-fields-' + initVal;
+    });
+  }
 
   await refreshMemoryList();
   await testConnection();

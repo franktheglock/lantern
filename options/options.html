@@ -137,11 +137,40 @@
         </section>
 
         <section class="card">
-          <h2>Web search (SearXNG)</h2>
+          <h2>Web search</h2>
           <label class="field">
-            <span class="field-label">SearXNG base URL</span>
-            <input type="url" id="searxngUrl" placeholder="http://192.168.1.129:55001" />
+            <span class="field-label">Search provider</span>
+            <select id="searchProvider">
+              <option value="searxng">SearXNG (self-hosted)</option>
+              <option value="exa">Exa</option>
+              <option value="parallel">ParallelSearch</option>
+              <option value="tinyfish">Tinyfish</option>
+            </select>
           </label>
+          <div class="search-provider-fields" id="search-fields-searxng">
+            <label class="field">
+              <span class="field-label">SearXNG base URL</span>
+              <input type="url" id="searxngUrl" placeholder="http://192.168.1.129:55001" />
+            </label>
+          </div>
+          <div class="search-provider-fields" id="search-fields-exa" hidden>
+            <label class="field">
+              <span class="field-label">Exa API key</span>
+              <input type="password" id="keyExa" placeholder="exa-…" autocomplete="off" />
+            </label>
+          </div>
+          <div class="search-provider-fields" id="search-fields-parallel" hidden>
+            <label class="field">
+              <span class="field-label">ParallelSearch API key</span>
+              <input type="password" id="keyParallel" placeholder="psk-…" autocomplete="off" />
+            </label>
+          </div>
+          <div class="search-provider-fields" id="search-fields-tinyfish" hidden>
+            <label class="field">
+              <span class="field-label">Tinyfish API key</span>
+              <input type="password" id="keyTinyfish" placeholder="tf-…" autocomplete="off" />
+            </label>
+          </div>
           <label class="check">
             <input type="checkbox" id="toolsEnabled" />
             <span>Give the LLM tools (web_search + read_url)</span>
@@ -151,8 +180,7 @@
             <input type="number" id="maxToolRounds" min="-1" max="50" step="1" />
           </label>
           <p class="field-note">
-            New-tab <strong>Enter</strong> opens Google. The LLM uses SearXNG for tool search (JSON must be enabled:
-            <code>formats: [html, json]</code>).
+            SearXNG needs <code>formats: [html, json]</code> in settings.yml. For cloud search providers, add your API key above.
           </p>
         </section>
 

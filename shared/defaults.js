@@ -19,6 +19,7 @@ export const DEFAULTS = {
   memoryAutoAccept: false,
   stream: true,
   toolsEnabled: true,
+  searchProvider: 'searxng',
   searxngUrl: 'http://192.168.1.129:55001',
   maxToolRounds: 4,
   /** Global gate: allow Agent mode in the composer */
@@ -37,6 +38,9 @@ export const DEFAULTS = {
   keyXai: '',
   keyNvidia: '',
   keyOpencodego: '',
+  keyExa: '',
+  keyParallel: '',
+  keyTinyfish: '',
 };
 
 export const QUICK_ACTIONS = [

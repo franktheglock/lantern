@@ -81,6 +81,15 @@ async function init() {
     if (els.modeAgentBtn) els.modeAgentBtn.classList.toggle('is-disabled', !agentModeAllowed);
   }
 
+  // Check if setup is needed (no cloud keys + default local endpoint)
+  const s = settingsRes?.settings || {};
+  const hasCloudKey = !!(s.keyOpenrouter || s.keyOpenai || s.keyGroq || s.keyAnthropic || s.keyXai || s.keyNvidia || s.keyOpencodego);
+  const customEndpoint = s.endpoint && s.endpoint !== 'http://192.168.1.129:8084';
+  if (!hasCloudKey && !customEndpoint) {
+    window.location.href = '../setup/setup.html';
+    return;
+  }
+
   await refreshActiveTab();
   await loadHistory();
   await loadModelPicker();
