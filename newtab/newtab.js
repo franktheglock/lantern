@@ -26,11 +26,15 @@ async function init() {
   const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
   settings = res?.settings || {};
   if (settings.newtabEnabled === false) {
-    // Strip all extension CSS and content to show a truly blank page
-    document.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
-    document.title = '';
-    document.body.innerHTML = '';
-    document.body.style.background = '';
+    // Minimal mode: show search + pins, hide Lantern branding
+    document.title = 'New Tab';
+    document.body.classList.add('minimal');
+    query.placeholder = 'Search the web…';
+    updateEndpointLabel();
+    await loadPins();
+    form.addEventListener('submit', onSubmit);
+    query.addEventListener('keydown', onKeyDown);
+    claimSearchFocus();
     return;
   }
   updateEndpointLabel();

@@ -617,3 +617,16 @@ body {
     animation: none !important;
   }
 }
+
+/* Minimal mode — just search + pins */
+.minimal .top-actions,
+.minimal .greeting,
+.minimal .key-hints,
+.minimal .recent-chats,
+.minimal .foot {
+  display: none;
+}
+
+.minimal .shell {
+  padding-top: 48px;
+}
