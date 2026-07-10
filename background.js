@@ -11,8 +11,8 @@ var DEFAULTS = {
   provider: 'local',
   model: 'Gemma-Test',
   temperature: 0.7,
-  maxTokens: 2048,
-  maxPageChars: 12000,
+  maxTokens: -1,
+  maxPageChars: -1,
   systemPrompt:
     'You are Lantern, a helpful browsing assistant running locally. Be concise and practical. When page context is provided, use it accurately — quote sparingly and do not invent page content. You have tools to search the web and read URLs; use them when you need current information or page contents rather than guessing.',
   includePageContext: true,
@@ -1558,11 +1558,11 @@ function chatCompletionAnthropic(conn, settings, messages, opts) {
     max_tokens:
       opts.maxTokens === false
         ? 8192
-        : opts.maxTokens != null
-          ? opts.maxTokens
-          : settings.maxTokens != null
-            ? settings.maxTokens
-            : 4096,
+        : (function () {
+            var mt =
+              opts.maxTokens != null ? opts.maxTokens : settings.maxTokens;
+            return mt != null && mt >= 0 ? mt : 8192;
+          })(),
   };
   if (systemParts.length) body.system = systemParts.join('\n\n');
   if (opts.temperature != null) body.temperature = opts.temperature;
@@ -1741,8 +1741,8 @@ function chatCompletion(settings, messages, opts) {
   };
   // Omit max_tokens when false (title calls) or unset — modern models manage length
   if (opts.maxTokens !== false) {
-    if (opts.maxTokens != null) body.max_tokens = opts.maxTokens;
-    else if (settings.maxTokens != null) body.max_tokens = settings.maxTokens;
+    var mt = opts.maxTokens != null ? opts.maxTokens : settings.maxTokens;
+    if (mt != null && mt >= 0) body.max_tokens = mt;
   }
   var model = conn.model || settings.model;
   if (model) body.model = model;
