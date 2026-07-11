@@ -6201,6 +6201,7 @@ function debugFetchYouTubeTranscript(videoId) {
     return Promise.resolve({ transcript: null, debug: 'invalid videoId length=' + (videoId || '').length });
   }
 
+  // Step 1: Try InnerTube API (Android client)
   return fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
     method: 'POST',
     headers: {
@@ -6213,32 +6214,102 @@ function debugFetchYouTubeTranscript(videoId) {
     }),
   })
     .then(function (resp) {
-      if (!resp.ok) return { transcript: null, debug: 'InnerTube status=' + resp.status };
+      if (!resp.ok) {
+        // Step 2: InnerTube failed — fall back to scraping the HTML watch page
+        return fetchYouTubeTranscriptFromHtml(videoId);
+      }
       return resp.json().then(function (data) {
-        // Check for captions
-        if (!data.captions) return { transcript: null, debug: 'no captions key in response' };
-        if (!data.captions.playerCaptionsTracklistRenderer) return { transcript: null, debug: 'no playerCaptionsTracklistRenderer' };
-        var tracks = data.captions.playerCaptionsTracklistRenderer.captionTracks;
-        if (!Array.isArray(tracks) || !tracks.length) return { transcript: null, debug: 'captionTracks empty or not array' };
-        var track = tracks[0];
-        if (!track || !track.baseUrl) return { transcript: null, debug: 'track has no baseUrl, keys=' + Object.keys(track).join(',') };
-        return fetch(track.baseUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
-          },
-        }).then(function (txResp) {
-          if (!txResp.ok) return { transcript: null, debug: 'transcript fetch status=' + txResp.status };
-          return txResp.text().then(function (xml) {
-            var parsed = parseYouTubeTranscriptXml(xml);
-            if (parsed) return { transcript: parsed, debug: 'ok ' + parsed.length + ' chars' };
-            return { transcript: null, debug: 'XML parsed but no segments, xml=' + xml.slice(0, 300) };
-          });
-        });
+        var tracks =
+          data &&
+          data.captions &&
+          data.captions.playerCaptionsTracklistRenderer &&
+          data.captions.playerCaptionsTracklistRenderer.captionTracks;
+        if (Array.isArray(tracks) && tracks.length && tracks[0] && tracks[0].baseUrl) {
+          return fetchTranscriptXml(tracks[0].baseUrl);
+        }
+        // InnerTube succeeded but no captions — try HTML fallback
+        return fetchYouTubeTranscriptFromHtml(videoId);
       });
     })
     .catch(function (err) {
       return { transcript: null, debug: 'exception: ' + (err && err.message ? err.message : String(err)) };
+    });
+}
+
+/** Fallback: scrape transcript from the YouTube watch page HTML. */
+function fetchYouTubeTranscriptFromHtml(videoId) {
+  return fetch('https://www.youtube.com/watch?v=' + encodeURIComponent(videoId), {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
+    },
+  })
+    .then(function (resp) {
+      if (!resp.ok) return { transcript: null, debug: 'HTML fallback status=' + resp.status };
+      return resp.text();
+    })
+    .then(function (html) {
+      if (!html) return { transcript: null, debug: 'HTML fallback empty body' };
+      if (html.indexOf('class="g-recaptcha"') !== -1) {
+        return { transcript: null, debug: 'HTML fallback blocked by captcha' };
+      }
+      // Extract ytInitialPlayerResponse JSON from inline script
+      var startToken = 'var ytInitialPlayerResponse = ';
+      var startIdx = html.indexOf(startToken);
+      if (startIdx === -1) {
+        // Try alternate format
+        startToken = 'window.ytInitialPlayerResponse = ';
+        startIdx = html.indexOf(startToken);
+      }
+      if (startIdx === -1) return { transcript: null, debug: 'HTML fallback no ytInitialPlayerResponse found (page structure changed)' };
+
+      var jsonStart = startIdx + startToken.length;
+      var depth = 0;
+      var jsonEnd = -1;
+      for (var i = jsonStart; i < html.length; i++) {
+        if (html[i] === '{') depth++;
+        else if (html[i] === '}') {
+          depth--;
+          if (depth === 0) { jsonEnd = i + 1; break; }
+        }
+      }
+      if (jsonEnd === -1) return { transcript: null, debug: 'HTML fallback could not find end of JSON' };
+
+      var data;
+      try {
+        data = JSON.parse(html.slice(jsonStart, jsonEnd));
+      } catch (e) {
+        return { transcript: null, debug: 'HTML fallback JSON parse error: ' + e.message };
+      }
+
+      var tracks =
+        data &&
+        data.captions &&
+        data.captions.playerCaptionsTracklistRenderer &&
+        data.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if (!Array.isArray(tracks) || !tracks.length || !tracks[0] || !tracks[0].baseUrl) {
+        return { transcript: null, debug: 'HTML fallback: no caption tracks in parsed data' };
+      }
+
+      return fetchTranscriptXml(tracks[0].baseUrl);
+    });
+}
+
+/** Fetch transcript XML from a caption track URL and parse it. */
+function fetchTranscriptXml(baseUrl) {
+  return fetch(baseUrl, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
+    },
+  })
+    .then(function (txResp) {
+      if (!txResp.ok) return { transcript: null, debug: 'transcript fetch status=' + txResp.status };
+      return txResp.text().then(function (xml) {
+        var parsed = parseYouTubeTranscriptXml(xml);
+        if (parsed) return { transcript: parsed, debug: 'ok ' + parsed.length + ' chars' };
+        return { transcript: null, debug: 'XML parsed but no segments, xml=' + xml.slice(0, 300) };
+      });
     });
 }
 
