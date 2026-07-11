@@ -3069,6 +3069,106 @@ function initSidePanelBehavior() {
 // Page context
 // ---------------------------------------------------------------------------
 
+/**
+ * Fetch a YouTube video transcript via InnerTube API (Android client).
+ * Handles both srv3 (<p t="ms" d="ms">) and classic (<text start="s" dur="s">) XML formats.
+ */
+function fetchYouTubeTranscript(videoId) {
+  if (!videoId || videoId.length !== 11) return Promise.resolve(null);
+
+  return fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
+    },
+    body: JSON.stringify({
+      context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
+      videoId: videoId,
+    }),
+  })
+    .then(function (resp) {
+      if (!resp.ok) return null;
+      return resp.json();
+    })
+    .then(function (data) {
+      var tracks =
+        data &&
+        data.captions &&
+        data.captions.playerCaptionsTracklistRenderer &&
+        data.captions.playerCaptionsTracklistRenderer.captionTracks;
+      if (!Array.isArray(tracks) || !tracks.length) return null;
+      var track = tracks[0];
+      if (!track || !track.baseUrl) return null;
+      return fetch(track.baseUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
+        },
+      });
+    })
+    .then(function (txResp) {
+      if (!txResp || !txResp.ok) return null;
+      return txResp.text();
+    })
+    .then(function (xml) {
+      if (!xml) return null;
+      return parseYouTubeTranscriptXml(xml);
+    })
+    .catch(function () {
+      return null;
+    });
+}
+
+/** Parse YouTube transcript XML — handles both srv3 and classic format. */
+function parseYouTubeTranscriptXml(xml) {
+  var parts = [];
+
+  // Try srv3 format first: <p t="ms" d="ms"><s>word</s>...</p>
+  var pRe = /<p\s+t="(\d+)"\s+d="(\d+)"[^>]*>([\s\S]*?)<\/p>/g;
+  var pMatch;
+  var foundSrv3 = false;
+  while ((pMatch = pRe.exec(xml)) !== null) {
+    foundSrv3 = true;
+    var inner = pMatch[3];
+    var text = '';
+    var sRe = /<s[^>]*>([^<]*)<\/s>/g;
+    var sMatch;
+    while ((sMatch = sRe.exec(inner)) !== null) {
+      text += sMatch[1];
+    }
+    if (!text) {
+      text = inner.replace(/<[^>]+>/g, '');
+    }
+    text = decodeHtmlEntities(text).trim();
+    if (text) parts.push(text);
+  }
+
+  if (foundSrv3) {
+    return parts.length ? parts.join(' ').replace(/\s+/g, ' ').trim() : null;
+  }
+
+  // Fall back to classic format: <text start="s" dur="s">content</text>
+  var textRe = /<text[^>]*>([^<]*)<\/text>/g;
+  var textMatch;
+  while ((textMatch = textRe.exec(xml)) !== null) {
+    var t = decodeHtmlEntities(textMatch[1]).trim();
+    if (t) parts.push(t);
+  }
+
+  return parts.length ? parts.join(' ').replace(/\s+/g, ' ').trim() : null;
+}
+
+function decodeHtmlEntities(text) {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
 function extractPageContext(tabId) {
   return chrome.tabs.get(tabId).then(function (tab) {
     var url = tab.url || '';
@@ -3784,18 +3884,10 @@ function handleMessage(message, sender) {
       if (!message.videoId) {
         return Promise.resolve({ ok: false, error: 'Missing videoId' });
       }
-      return fetch('https://youtubetranscript.com/?v=' + encodeURIComponent(message.videoId) + '&format=json')
-        .then(function (resp) {
-          if (!resp.ok) return { ok: true, transcript: null };
-          return resp.json().then(function (data) {
-            if (!Array.isArray(data) || !data.length) return { ok: true, transcript: null };
-            var text = data.map(function (s) { return s.text; }).join(' ').replace(/\s+/g, ' ').trim();
-            return { ok: true, transcript: text || null };
-          });
-        })
-        .catch(function () {
-          return { ok: false, error: 'Transcript API unreachable' };
-        });
+      return fetchYouTubeTranscript(message.videoId).then(function (transcript) {
+        if (transcript) return { ok: true, transcript: transcript };
+        return { ok: true, transcript: null };
+      });
 
     default:
       return Promise.resolve({
