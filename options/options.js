@@ -68,6 +68,11 @@ async function init() {
   document.getElementById('btn-refresh-memories')?.addEventListener('click', () => {
     refreshMemoryList().catch(() => {});
   });
+  document.getElementById('btn-yt-test')?.addEventListener('click', testYouTubeTranscript);
+  document.getElementById('ytTestUrl')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') testYouTubeTranscript();
+  });
+
   document.getElementById('agentModeAllowed')?.addEventListener('change', (e) => {
     if (e.target.checked) {
       const ok = confirm(
@@ -196,6 +201,45 @@ async function onSave(e) {
   await setSettings(partial);
   flash('Saved');
   await testConnection();
+}
+
+async function testYouTubeTranscript() {
+  const urlEl = document.getElementById('ytTestUrl');
+  const resultEl = document.getElementById('ytTestResult');
+  const url = (urlEl?.value || '').trim();
+  if (!url) {
+    resultEl.textContent = 'Enter a YouTube video URL first.';
+    return;
+  }
+
+  // Extract video ID
+  const match =
+    url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  const videoId = match ? match[1] : null;
+  if (!videoId) {
+    resultEl.textContent = 'Could not extract a YouTube video ID from that URL.';
+    return;
+  }
+
+  resultEl.textContent = 'Fetching transcript for ' + videoId + '…';
+
+  try {
+    const res = await chrome.runtime.sendMessage({
+      type: 'YOUTUBE_TRANSCRIPT',
+      videoId: videoId,
+    });
+    const transcript = res?.ok ? res.transcript : null;
+
+    if (transcript) {
+      resultEl.innerHTML =
+        '<strong>Transcript (' + videoId + '):</strong>\n' +
+        escapeHtml(transcript);
+    } else {
+      resultEl.textContent = 'No transcript available for this video.';
+    }
+  } catch (err) {
+    resultEl.textContent = 'Error: ' + (err?.message || String(err));
+  }
 }
 
 function flash(msg) {

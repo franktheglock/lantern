@@ -3780,6 +3780,23 @@ function handleMessage(message, sender) {
         };
       });
 
+    case 'YOUTUBE_TRANSCRIPT':
+      if (!message.videoId) {
+        return Promise.resolve({ ok: false, error: 'Missing videoId' });
+      }
+      return fetch('https://youtubetranscript.com/?v=' + encodeURIComponent(message.videoId) + '&format=json')
+        .then(function (resp) {
+          if (!resp.ok) return { ok: true, transcript: null };
+          return resp.json().then(function (data) {
+            if (!Array.isArray(data) || !data.length) return { ok: true, transcript: null };
+            var text = data.map(function (s) { return s.text; }).join(' ').replace(/\s+/g, ' ').trim();
+            return { ok: true, transcript: text || null };
+          });
+        })
+        .catch(function () {
+          return { ok: false, error: 'Transcript API unreachable' };
+        });
+
     default:
       return Promise.resolve({
         ok: false,

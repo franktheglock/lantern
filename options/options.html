@@ -198,6 +198,19 @@
         </section>
 
         <section class="card">
+          <h2>YouTube transcript test</h2>
+          <p class="field-note">
+            Test the transcript fetcher used by the MCP server. Enter a YouTube video URL
+            below and click Test to see the result.
+          </p>
+          <div class="row tight">
+            <input type="url" id="ytTestUrl" placeholder="https://www.youtube.com/watch?v=…" style="flex:1" />
+            <button type="button" class="btn btn-secondary" id="btn-yt-test">Test transcript</button>
+          </div>
+          <div id="ytTestResult" style="margin-top:10px; font-size:0.85rem; white-space:pre-wrap; max-height:300px; overflow:auto"></div>
+        </section>
+
+        <section class="card">
           <h2>Memories</h2>
           <p class="field-note">
             Local notes injected into the system prompt when enabled. Never synced to the cloud by Lantern
