@@ -243,7 +243,8 @@ async function testYouTubeTranscript() {
         '<strong>Transcript (' + videoId + ') [' + res.transcript.length + ' chars]:</strong>\n' +
         escapeHtml(res.transcript);
     } else {
-      resultEl.textContent = 'No transcript available for this video. (Response OK but null transcript)';
+      var debugInfo = res.debug ? '\n\nDebug: ' + res.debug : '';
+      resultEl.textContent = 'No transcript available.' + debugInfo;
     }
   } catch (err) {
     resultEl.textContent = 'Error: ' + (err?.message || String(err));
