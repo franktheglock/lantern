@@ -391,7 +391,7 @@ body {
   align-self: stretch;
   width: 100%;
   max-width: var(--chat-col);
-  padding: 2px 0 24px;
+  padding: 2px 0 56px;
   box-sizing: border-box;
 }
 

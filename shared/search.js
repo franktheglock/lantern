@@ -109,14 +109,13 @@ function searchParallel(settings, query) {
 function searchTinyfish(settings, query) {
   var key = (settings.keyTinyfish || '').trim();
   if (!key) return Promise.resolve(JSON.stringify({ error: 'Tinyfish API key not set. Add it in Settings.' }));
-  return fetch('https://api.tinyfish.io/v1/search', {
-    method: 'POST',
+  var url = 'https://api.search.tinyfish.ai?query=' + encodeURIComponent(query);
+  return fetch(url, {
+    method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
       'Accept': 'application/json',
-      'Authorization': 'Bearer ' + key,
+      'X-API-Key': key,
     },
-    body: JSON.stringify({ q: query, count: 8 }),
   }).then(function (res) {
     if (!res.ok) {
       return res.text().then(function (t) {
@@ -124,8 +123,8 @@ function searchTinyfish(settings, query) {
       });
     }
     return res.json().then(function (data) {
-      var results = (data.results || data.data || []).map(function (r) {
-        return { title: r.title || '', url: r.url || r.link || '', content: (r.snippet || r.text || '').slice(0, 400), engine: 'tinyfish' };
+      var results = (data.results || []).map(function (r) {
+        return { title: r.title || '', url: r.url || '', content: (r.snippet || '').slice(0, 400), engine: 'tinyfish' };
       });
       return formatResults({ _query: query, _list: results });
     });

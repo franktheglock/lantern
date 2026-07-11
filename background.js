@@ -613,44 +613,76 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
   if (!settings.memoriesEnabled || !settings.memoryAutoExtract) {
     return Promise.resolve(null);
   }
-  var userSlice = String(userText || '').trim().slice(0, 800);
+  var userSlice = String(userText || '').trim().slice(0, 600);
   var asstSlice = String(assistantText || '')
     .trim()
     .replace(/\s+/g, ' ')
-    .slice(0, 1200);
+    .slice(0, 800);
   if (!userSlice && !asstSlice) return Promise.resolve(null);
 
-  var messages = [
-    {
-      role: 'system',
-      content:
-        'Extract durable personal facts worth remembering about the user for future chats. ' +
-        'Return ONLY a JSON array of 0–3 objects: [{"title":"short label","text":"one fact"}]. ' +
-        'Include preferences, projects, standing decisions, names they care about. ' +
-        'Exclude secrets, passwords, ephemeral page content, one-off trivia, and anything not about the user. ' +
-        'If nothing durable, return []. No markdown, no explanation.',
-    },
-    {
-      role: 'user',
-      content:
-        'User message:\n' +
-        userSlice +
-        '\n\nAssistant reply (excerpt):\n' +
-        (asstSlice || '(none)') +
-        '\n\nJSON array:',
-    },
-  ];
+  // Fetch existing active memories so the model can update rather than duplicate
+  return getActiveMemories()
+    .then(function (existing) {
+      // Build a compact summary of existing memories for the prompt
+      var existingBlock = '';
+      if (existing && existing.length) {
+        var lines = [];
+        var totalLen = 0;
+        for (var ei = 0; ei < existing.length && totalLen < 2000; ei++) {
+          var em = existing[ei];
+          var line =
+            '  [id:' +
+            em.id +
+            '] ' +
+            (em.title || '') +
+            ' — ' +
+            (em.text || '').replace(/\n/g, ' ').slice(0, 120);
+          totalLen += line.length;
+          lines.push(line);
+        }
+        existingBlock =
+          '\nAlready remembered:\n' + lines.join('\n') + '\n';
+      }
 
-  return chatCompletion(Object.assign({}, settings), messages, {
-    stream: false,
-    returnMessage: true,
-    maxTokens: false,
-    temperature: 0.2,
-  })
-    .then(function (r) {
-      var content = typeof r === 'string' ? r : (r && r.content) || '';
+      var systemContent =
+        'You extract and UPDATE personal facts worth remembering about the user for future chats.\n' +
+        'Rules:\n' +
+        '- Return a JSON array of 0–3 objects: [{"title":"short label","text":"one fact"}]\n' +
+        '- To UPDATE an existing memory, include its id: [{"id":"...","title":"...","text":"..."}]\n' +
+        '- To KEEP an existing memory unchanged, OMIT it from the array\n' +
+        '- Include preferences, projects, standing decisions, names\n' +
+        '- Exclude secrets, passwords, ephemeral page content, one-off trivia\n' +
+        '- If nothing durable or nothing changed, return []\n' +
+        'No markdown, no explanation.' +
+        existingBlock;
+
+      var messages = [
+        { role: 'system', content: systemContent },
+        {
+          role: 'user',
+          content:
+            'User message:\n' +
+            userSlice +
+            '\n\nAssistant reply (excerpt):\n' +
+            (asstSlice || '(none)') +
+            '\n\nJSON array:',
+        },
+      ];
+
+      return chatCompletion(Object.assign({}, settings), messages, {
+        stream: false,
+        returnMessage: true,
+        maxTokens: false,
+        temperature: 0.2,
+      }).then(function (r) {
+        return { raw: r, existing: existing };
+      });
+    })
+    .then(function (ctx) {
+      var content = typeof ctx.raw === 'string' ? ctx.raw : (ctx.raw && ctx.raw.content) || '';
       var json = extractJsonArray(content);
       if (!json || !json.length) return null;
+      var existing = ctx.existing || [];
       var autoAccept = !!settings.memoryAutoAccept;
       var chain = Promise.resolve([]);
       var i;
@@ -659,8 +691,56 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
           var text = String((item && (item.text || item.fact || item.memory)) || '').trim();
           if (!text || text.length < 4) return;
           var title = String((item && item.title) || '').trim().slice(0, 80);
+          var id = String((item && item.id) || '').trim() || null;
+
+          // If the model supplied an id that matches an existing memory, use it (update)
+          if (id) {
+            var matched = null;
+            for (var ei = 0; ei < existing.length; ei++) {
+              if (existing[ei].id === id) {
+                matched = existing[ei];
+                break;
+              }
+            }
+            if (!matched) id = null; // bogus id, treat as new
+          }
+
+          // No id from model — fuzzy-match by text overlap against existing memories
+          if (!id) {
+            var norm = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+            var words = norm.split(/\s+/).filter(function (w) {
+              return w.length > 3;
+            });
+            var bestScore = 0;
+            var bestMatch = null;
+            var ej;
+            for (ej = 0; ej < existing.length; ej++) {
+              var en = (existing[ej].text || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+              var eWords = en.split(/\s+/).filter(function (w) {
+                return w.length > 3;
+              });
+              var union = {};
+              var intersect = 0;
+              var wk;
+              for (wk = 0; wk < words.length; wk++) union[words[wk]] = true;
+              for (wk = 0; wk < eWords.length; wk++) union[eWords[wk]] = true;
+              for (wk = 0; wk < words.length; wk++) {
+                if (eWords.indexOf(words[wk]) !== -1) intersect++;
+              }
+              var score = Object.keys(union).length > 0 ? intersect / Object.keys(union).length : 0;
+              if (score > bestScore) {
+                bestScore = score;
+                bestMatch = existing[ej];
+              }
+            }
+            if (bestMatch && bestScore >= 0.4) {
+              id = bestMatch.id;
+            }
+          }
+
           chain = chain.then(function (acc) {
             return saveMemory({
+              id: id || undefined, // pass id so saveMemory updates instead of creating
               text: text.slice(0, 500),
               title: title,
               source: 'auto',
@@ -2007,15 +2087,14 @@ function searchParallel(settings, query) {
 function searchTinyfish(settings, query) {
   var key = (settings.keyTinyfish || '').trim();
   if (!key) return Promise.resolve(JSON.stringify({ error: 'Tinyfish API key not set. Add it in Settings.' }));
-  return fetch('https://api.tinyfish.io/v1/search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + key },
-    body: JSON.stringify({ q: query, count: 8 }),
+  return fetch('https://api.search.tinyfish.ai?query=' + encodeURIComponent(query), {
+    method: 'GET',
+    headers: { Accept: 'application/json', 'X-API-Key': key },
   }).then(function (res) {
     if (!res.ok) return res.text().then(function (t) { throw new Error('Tinyfish error (' + res.status + '): ' + (t || res.statusText).slice(0, 200)); });
     return res.json().then(function (data) {
-      var results = (data.results || data.data || []).map(function (r) {
-        return { n: 0, title: r.title || '', url: r.url || r.link || '', content: (r.snippet || r.text || '').slice(0, 400), engine: 'tinyfish' };
+      var results = (data.results || []).map(function (r) {
+        return { n: 0, title: r.title || '', url: r.url || '', content: (r.snippet || '').slice(0, 400), engine: 'tinyfish' };
       });
       results.forEach(function (r, i) { r.n = i + 1; });
       return JSON.stringify({ query: query, results: results, note: results.length ? 'Use read_url on promising links for full text.' : 'No results. Try a different query.' }, null, 2);
