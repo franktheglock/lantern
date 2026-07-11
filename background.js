@@ -6214,10 +6214,7 @@ function debugFetchYouTubeTranscript(videoId) {
     }),
   })
     .then(function (resp) {
-      if (!resp.ok) {
-        // Step 2: InnerTube failed — fall back to scraping the HTML watch page
-        return fetchYouTubeTranscriptFromHtml(videoId);
-      }
+      if (!resp.ok) return 'fallback';
       return resp.json().then(function (data) {
         var tracks =
           data &&
@@ -6227,9 +6224,14 @@ function debugFetchYouTubeTranscript(videoId) {
         if (Array.isArray(tracks) && tracks.length && tracks[0] && tracks[0].baseUrl) {
           return fetchTranscriptXml(tracks[0].baseUrl);
         }
-        // InnerTube succeeded but no captions — try HTML fallback
-        return fetchYouTubeTranscriptFromHtml(videoId);
+        return 'fallback';
       });
+    })
+    .then(function (result) {
+      if (result === 'fallback') {
+        return fetchYouTubeTranscriptFromHtml(videoId);
+      }
+      return result;
     })
     .catch(function (err) {
       return { transcript: null, debug: 'exception: ' + (err && err.message ? err.message : String(err)) };
