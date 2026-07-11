@@ -4253,7 +4253,18 @@ var mcpBridge = (function () {
       case 'browser_click':
         resultPromise = withActiveTab(function (tabId) {
           return sendToAgentTab(tabId, { type: 'AGENT_CLICK', ref: args.ref }).then(function (res) {
-            return JSON.stringify(res || { error: 'Click failed' });
+            var result = res || { error: 'Click failed' };
+            if (args.return_content && result.ok) {
+              return extractPageContext(tabId).then(function (ctx) {
+                result.page = {
+                  title: ctx.title,
+                  url: ctx.url,
+                  text: String(ctx.text || '').slice(0, 8000),
+                };
+                return JSON.stringify(result);
+              });
+            }
+            return JSON.stringify(result);
           });
         });
         break;
@@ -4287,7 +4298,23 @@ var mcpBridge = (function () {
           var ms = Math.min(8000, Math.max(0, Number(args.ms) || 500));
           return new Promise(function (resolve) {
             setTimeout(function () {
-              resolve(JSON.stringify({ ok: true, waited: ms }));
+              var result = { ok: true, waited: ms };
+              if (args.return_content) {
+                withActiveTab(function (tabId) {
+                  return extractPageContext(tabId).then(function (ctx) {
+                    result.page = {
+                      title: ctx.title,
+                      url: ctx.url,
+                      text: String(ctx.text || '').slice(0, 8000),
+                    };
+                    resolve(JSON.stringify(result));
+                  });
+                }).catch(function () {
+                  resolve(JSON.stringify(result));
+                });
+              } else {
+                resolve(JSON.stringify(result));
+              }
             }, ms);
           });
         })();

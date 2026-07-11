@@ -202,12 +202,13 @@ server.tool(
 // --- browser_click ---
 server.tool(
   "browser_click",
-  "Click an element by its ref (e1, e2…) from the latest browser_snapshot.",
+  "Click an element by its ref (e1, e2…) from the latest browser_snapshot. Set return_content=true to also get the page title/URL/text after the click, saving a separate browser_get_page call.",
   {
     ref: z.string().describe("Element ref (e.g. e1, e12) from browser_snapshot"),
+    return_content: z.boolean().optional().default(false).describe("If true, also return the page title, URL, and text after the click"),
   },
-  async ({ ref }) => {
-    const result = await callExtension("browser_click", { ref });
+  async ({ ref, return_content }) => {
+    const result = await callExtension("browser_click", { ref, return_content });
     return { content: [{ type: "text", text: result }] };
   }
 );
@@ -243,7 +244,7 @@ server.tool(
 // --- browser_wait ---
 server.tool(
   "browser_wait",
-  "Wait a short time (ms) before the next action. Useful after navigation or clicking elements that trigger transitions. Max 8000ms.",
+  "Wait a short time (ms) before the next action. Useful after navigation or clicking elements that trigger transitions. Max 8000ms. Set return_content=true to also get the page title/URL/text after the wait, saving a separate browser_get_page call.",
   {
     ms: z
       .number()
@@ -252,9 +253,10 @@ server.tool(
       .max(8000)
       .default(500)
       .describe("Milliseconds to wait (max 8000)"),
+    return_content: z.boolean().optional().default(false).describe("If true, also return the page title, URL, and text after waiting"),
   },
-  async ({ ms }) => {
-    const result = await callExtension("browser_wait", { ms });
+  async ({ ms, return_content }) => {
+    const result = await callExtension("browser_wait", { ms, return_content });
     return { content: [{ type: "text", text: result }] };
   }
 );
