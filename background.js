@@ -4093,6 +4093,273 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
   });
 });
 
+// ---------------------------------------------------------------------------
+// MCP bridge — connects to lantern-mcp Node.js server via WebSocket
+// so any MCP-compatible AI client can call browser automation tools.
+// ---------------------------------------------------------------------------
+
+var mcpBridge = (function () {
+  var ws = null;
+  var reconnectTimer = null;
+  var mcpActiveTabId = null;
+
+  function connect() {
+    var port = 9847;
+    var url = 'ws://localhost:' + port;
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      scheduleReconnect();
+      return;
+    }
+
+    ws.onopen = function () {
+      console.log('[lantern-mcp] Connected to MCP server at', url);
+    };
+
+    ws.onmessage = function (event) {
+      var msg;
+      try {
+        msg = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+      if (msg.type === 'tool_call') {
+        handleMCPToolCall(msg.id, msg.tool, msg.args || {});
+      }
+    };
+
+    ws.onclose = function () {
+      console.log('[lantern-mcp] Disconnected from MCP server');
+      ws = null;
+      scheduleReconnect();
+    };
+
+    ws.onerror = function () {
+      // onclose fires right after, so reconnect is handled there
+    };
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(function () {
+      reconnectTimer = null;
+      connect();
+    }, 5000);
+  }
+
+  function sendResult(id, result, error) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    var msg = { type: 'tool_result', id: id };
+    if (error) {
+      msg.error = String(error).slice(0, 1000);
+    } else {
+      msg.result = result;
+    }
+    ws.send(JSON.stringify(msg));
+  }
+
+  function handleMCPToolCall(id, tool, args) {
+    var resultPromise;
+
+    switch (tool) {
+      case 'browser_snapshot':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, { type: 'AGENT_SNAPSHOT' }).then(function (res) {
+            if (!res || !res.ok) return JSON.stringify({ error: (res && res.error) || 'Snapshot failed' });
+            return JSON.stringify(res.snapshot);
+          });
+        });
+        break;
+
+      case 'browser_get_page':
+        resultPromise = withActiveTab(function (tabId) {
+          return extractPageContext(tabId).then(function (ctx) {
+            return JSON.stringify({
+              title: ctx.title,
+              url: ctx.url,
+              selection: ctx.selection || '',
+              text: String(ctx.text || '').slice(0, 8000),
+            });
+          });
+        });
+        break;
+
+      case 'browser_tabs_list':
+        resultPromise = chrome.tabs
+          .query({})
+          .then(function (tabs) {
+            var list = (tabs || []).map(function (t) {
+              return { id: t.id, title: t.title || '', url: t.url || '', active: t.active };
+            });
+            return JSON.stringify(list);
+          });
+        break;
+
+      case 'browser_tabs_open':
+        resultPromise = (function () {
+          var openUrl = String(args.url || '').trim();
+          if (!openUrl || isBlockedAgentUrl(openUrl)) {
+            return Promise.resolve(JSON.stringify({ error: 'URL not allowed: ' + openUrl }));
+          }
+          return chrome.tabs.create({ url: openUrl, active: false }).then(function (tab) {
+            return JSON.stringify({ ok: true, tabId: tab.id, url: tab.url });
+          });
+        })();
+        break;
+
+      case 'browser_tabs_switch':
+        resultPromise = (function () {
+          var switchId = Number(args.tabId);
+          if (!switchId || isNaN(switchId)) {
+            return Promise.resolve(JSON.stringify({ error: 'Invalid tabId' }));
+          }
+          mcpActiveTabId = switchId;
+          return Promise.resolve(JSON.stringify({ ok: true, tabId: switchId }));
+        })();
+        break;
+
+      case 'browser_navigate':
+        resultPromise = withActiveTab(function (tabId) {
+          var action = args.action || (args.url ? 'goto' : 'reload');
+          if (action === 'goto' && args.url) {
+            var navUrl = String(args.url || '').trim();
+            if (isBlockedAgentUrl(navUrl)) {
+              return Promise.resolve(JSON.stringify({ error: 'URL not allowed: ' + navUrl }));
+            }
+            return chrome.tabs.update(tabId, { url: navUrl }).then(function () {
+              return JSON.stringify({ ok: true, tabId: tabId, url: navUrl });
+            });
+          }
+          if (action === 'reload') {
+            return chrome.tabs.reload(tabId).then(function () {
+              return JSON.stringify({ ok: true, action: 'reload' });
+            });
+          }
+          if (action === 'back') {
+            return chrome.tabs.goBack(tabId).then(function () {
+              return JSON.stringify({ ok: true, action: 'back' });
+            });
+          }
+          if (action === 'forward') {
+            return chrome.tabs.goForward(tabId).then(function () {
+              return JSON.stringify({ ok: true, action: 'forward' });
+            });
+          }
+          return Promise.resolve(JSON.stringify({ error: 'Unknown navigate action' }));
+        });
+        break;
+
+      case 'browser_click':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, { type: 'AGENT_CLICK', ref: args.ref }).then(function (res) {
+            return JSON.stringify(res || { error: 'Click failed' });
+          });
+        });
+        break;
+
+      case 'browser_type':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, {
+            type: 'AGENT_TYPE',
+            ref: args.ref,
+            text: args.text,
+            clear: !!args.clear,
+          }).then(function (res) {
+            return JSON.stringify(res || { error: 'Type failed' });
+          });
+        });
+        break;
+
+      case 'browser_press':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, {
+            type: 'AGENT_PRESS',
+            key: args.key || 'Enter',
+          }).then(function (res) {
+            return JSON.stringify(res || { error: 'Press failed' });
+          });
+        });
+        break;
+
+      case 'browser_wait':
+        resultPromise = (function () {
+          var ms = Math.min(8000, Math.max(0, Number(args.ms) || 500));
+          return new Promise(function (resolve) {
+            setTimeout(function () {
+              resolve(JSON.stringify({ ok: true, waited: ms }));
+            }, ms);
+          });
+        })();
+        break;
+
+      case 'browser_find':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, {
+            type: 'AGENT_FIND',
+            query: String(args.query || '').trim(),
+          }).then(function (res) {
+            if (!res || !res.ok) {
+              return JSON.stringify({ error: (res && res.error) || 'Find failed' });
+            }
+            return JSON.stringify(res.result);
+          });
+        });
+        break;
+
+      default:
+        sendResult(id, null, 'Unknown tool: ' + tool);
+        return;
+    }
+
+    resultPromise.then(
+      function (result) {
+        sendResult(id, result, null);
+      },
+      function (err) {
+        sendResult(id, null, (err && err.message) || String(err));
+      }
+    );
+  }
+
+  /** Resolve the active tab for MCP operations. */
+  function withActiveTab(fn) {
+    if (mcpActiveTabId != null) {
+      return fn(mcpActiveTabId).catch(function () {
+        // tab may have been closed; fall through to query
+        mcpActiveTabId = null;
+        return resolveBestTab().then(fn);
+      });
+    }
+    return resolveBestTab().then(fn);
+  }
+
+  function resolveBestTab() {
+    return chrome.tabs.query({ active: true, currentWindow: true }).then(function (tabs) {
+      if (tabs && tabs.length) {
+        mcpActiveTabId = tabs[0].id;
+        return mcpActiveTabId;
+      }
+      return chrome.tabs.query({}).then(function (all) {
+        if (all && all.length) {
+          mcpActiveTabId = all[0].id;
+          return mcpActiveTabId;
+        }
+        throw new Error('No browser tabs available');
+      });
+    });
+  }
+
+  // Start connecting on load
+  connect();
+
+  return {
+    getActiveTabId: function () {
+      return mcpActiveTabId;
+    },
+  };
+})();
+
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   handleMessage(message, sender)
     .then(function (result) {
