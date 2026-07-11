@@ -29,6 +29,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { WebSocketServer } from "ws";
+import { fetchTranscript } from "youtube-transcript";
 
 const PORT = parseInt(process.env.LANTERN_MCP_PORT || "9847", 10);
 
@@ -116,6 +117,59 @@ function callExtension(tool, args) {
   });
 }
 
+/**
+ * If the result from the extension contains a YouTube page URL,
+ * fetch the video transcript via the youtube-transcript library
+ * and append it to the text content.
+ */
+async function maybeAddTranscript(resultString) {
+  if (!resultString || typeof resultString !== "string") return resultString;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(resultString);
+  } catch {
+    return resultString;
+  }
+  if (!parsed || typeof parsed !== "object") return resultString;
+
+  // Two possible shapes:
+  //   browser_get_page: { url, text, ... }
+  //   click/wait + return_content: { ok, page: { url, text } }
+  const url = parsed.url || (parsed.page && parsed.page.url) || "";
+  const textTarget = parsed.page || parsed;
+
+  // Match YouTube video ID from various URL formats
+  const videoId =
+    url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1];
+  if (!videoId) return resultString;
+
+  let lines;
+  try {
+    lines = await fetchTranscript(videoId);
+  } catch {
+    return resultString; // transcript unavailable
+  }
+  if (!lines || !lines.length) return resultString;
+
+  const transcript = lines
+    .map((l) => l.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!transcript) return resultString;
+
+  const existing = textTarget.text || "";
+  textTarget.text = existing
+    ? existing + "\n\n--- YouTube Transcript ---\n" + transcript
+    : transcript;
+
+  if (textTarget.selection !== undefined) textTarget.selection = "";
+
+  return JSON.stringify(parsed);
+}
+
 // ── MCP tools ──────────────────────────────────────────────────────────
 
 const server = new McpServer({
@@ -140,7 +194,7 @@ server.tool(
   "Get the title, URL, and readable text content of the active tab.",
   {},
   async () => {
-    const result = await callExtension("browser_get_page", {});
+    const result = await maybeAddTranscript(await callExtension("browser_get_page", {}));
     return { content: [{ type: "text", text: result }] };
   }
 );
@@ -208,7 +262,7 @@ server.tool(
     return_content: z.boolean().optional().default(false).describe("If true, also return the page title, URL, and text after the click"),
   },
   async ({ ref, return_content }) => {
-    const result = await callExtension("browser_click", { ref, return_content });
+    const result = await maybeAddTranscript(await callExtension("browser_click", { ref, return_content }));
     return { content: [{ type: "text", text: result }] };
   }
 );
@@ -256,7 +310,7 @@ server.tool(
     return_content: z.boolean().optional().default(false).describe("If true, also return the page title, URL, and text after waiting"),
   },
   async ({ ms, return_content }) => {
-    const result = await callExtension("browser_wait", { ms, return_content });
+    const result = await maybeAddTranscript(await callExtension("browser_wait", { ms, return_content }));
     return { content: [{ type: "text", text: result }] };
   }
 );

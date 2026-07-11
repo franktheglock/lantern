@@ -3069,73 +3069,6 @@ function initSidePanelBehavior() {
 // Page context
 // ---------------------------------------------------------------------------
 
-/**
- * Fetch a YouTube video transcript via InnerTube API (Android client).
- * @param {string} videoId - 11-character YouTube video ID
- * @returns {Promise<string|null>} Transcript text or null if unavailable
- */
-function fetchYouTubeTranscript(videoId) {
-  if (!videoId || videoId.length !== 11) return Promise.resolve(null);
-  return fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
-    },
-    body: JSON.stringify({
-      context: {
-        client: { clientName: 'ANDROID', clientVersion: '20.10.38' },
-      },
-      videoId: videoId,
-    }),
-  })
-    .then(function (resp) {
-      if (!resp.ok) return null;
-      return resp.json();
-    })
-    .then(function (data) {
-      var tracks =
-        data &&
-        data.captions &&
-        data.captions.playerCaptionsTracklistRenderer &&
-        data.captions.playerCaptionsTracklistRenderer.captionTracks;
-      if (!Array.isArray(tracks) || !tracks.length) return null;
-      var track = tracks[0];
-      var transcriptUrl = track.baseUrl;
-      if (!transcriptUrl) return null;
-      return fetch(transcriptUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.83 Safari/537.36',
-        },
-      }).then(function (txResp) {
-        if (!txResp.ok) return null;
-        return txResp.text();
-      });
-    })
-    .then(function (xml) {
-      if (!xml) return null;
-      // Parse <text start="s" dur="s">content</text>
-      var parts = [];
-      var re = /<text[^>]*>([^<]*)<\/text>/g;
-      var m;
-      while ((m = re.exec(xml)) !== null) {
-        var text = m[1]
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
-        if (text.trim()) parts.push(text.trim());
-      }
-      if (!parts.length) return null;
-      return parts.join(' ').replace(/\s+/g, ' ').trim();
-    })
-    .catch(function () {
-      return null;
-    });
-}
-
 function extractPageContext(tabId) {
   return chrome.tabs.get(tabId).then(function (tab) {
     var url = tab.url || '';
@@ -3234,29 +3167,6 @@ function extractPageContext(tabId) {
                 maxChars: settings.maxPageChars,
               }),
             };
-            // YouTube transcript enrichment
-            var ytMatch =
-              url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/) ||
-              url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
-              url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/) ||
-              url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
-            if (ytMatch) {
-              return fetchYouTubeTranscript(ytMatch[1]).then(function (transcript) {
-                if (transcript) {
-                  ctx.text = ctx.text
-                    ? ctx.text + '\\n\\n--- YouTube Transcript ---\\n' + transcript
-                    : transcript;
-                  ctx.formatted = formatPageContext({
-                    title: ctx.title,
-                    url: ctx.url,
-                    selection: ctx.selection,
-                    text: ctx.text,
-                    maxChars: settings.maxPageChars,
-                  });
-                }
-                return ctx;
-              });
-            }
             return ctx;
           })
           .catch(function (err) {
