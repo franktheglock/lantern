@@ -1,0 +1,24 @@
+{
+  "name": "lantern",
+  "version": "1.0.0",
+  "description": "**AI sidebar for every tab** — a Chrome extension that puts a page-aware AI assistant next to every page. Works with local models via [llama.cpp](https://github.com/ggml-org/llama.cpp) or any OpenAI/Anthropic-compatible cloud provider.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/franktheglock/lantern.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/franktheglock/lantern/issues"
+  },
+  "homepage": "https://github.com/franktheglock/lantern#readme",
+  "dependencies": {
+    "esbuild": "^0.28.1",
+    "youtube-transcript": "^1.3.1"
+  }
+}
