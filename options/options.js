@@ -228,14 +228,22 @@ async function testYouTubeTranscript() {
       type: 'YOUTUBE_TRANSCRIPT',
       videoId: videoId,
     });
-    const transcript = res?.ok ? res.transcript : null;
 
-    if (transcript) {
+    if (!res) {
+      resultEl.textContent = 'Error: no response from background (extension may need reload)';
+      return;
+    }
+    if (!res.ok) {
+      resultEl.textContent = 'Error: ' + (res.error || 'unknown error');
+      return;
+    }
+
+    if (res.transcript) {
       resultEl.innerHTML =
-        '<strong>Transcript (' + videoId + '):</strong>\n' +
-        escapeHtml(transcript);
+        '<strong>Transcript (' + videoId + ') [' + res.transcript.length + ' chars]:</strong>\n' +
+        escapeHtml(res.transcript);
     } else {
-      resultEl.textContent = 'No transcript available for this video.';
+      resultEl.textContent = 'No transcript available for this video. (Response OK but null transcript)';
     }
   } catch (err) {
     resultEl.textContent = 'Error: ' + (err?.message || String(err));

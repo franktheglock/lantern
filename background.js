@@ -3884,10 +3884,16 @@ function handleMessage(message, sender) {
       if (!message.videoId) {
         return Promise.resolve({ ok: false, error: 'Missing videoId' });
       }
-      return fetchYouTubeTranscript(message.videoId).then(function (transcript) {
-        if (transcript) return { ok: true, transcript: transcript };
-        return { ok: true, transcript: null };
-      });
+      try {
+        return fetchYouTubeTranscript(message.videoId).then(function (transcript) {
+          console.log('[YT transcript] videoId=' + message.videoId + ' result=' + (transcript ? transcript.length + ' chars' : 'null'));
+          if (transcript) return { ok: true, transcript: transcript };
+          return { ok: true, transcript: null };
+        });
+      } catch (e) {
+        console.error('[YT transcript] error:', e.message);
+        return Promise.resolve({ ok: false, error: e.message });
+      }
 
     default:
       return Promise.resolve({
