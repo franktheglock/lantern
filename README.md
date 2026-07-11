@@ -34,7 +34,7 @@ On first launch the setup wizard will guide you through picking a provider and e
 
 | Provider | Kind | Needs key |
 |----------|------|-----------|
-| Local (llama.cpp) | OpenAI-compatible | No (endpoint only) |
+| Local (llama.cpp) | OpenAI-compatible | depends on setup|
 | OpenRouter | OpenAI-compatible | Yes |
 | OpenAI | OpenAI-compatible | Yes |
 | Groq | OpenAI-compatible | Yes |
