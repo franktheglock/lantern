@@ -11,7 +11,8 @@
     "contextMenus",
     "tabs",
     "bookmarks",
-    "favicon"
+    "favicon",
+    "identity"
   ],
   "host_permissions": [
     "http://*/*",

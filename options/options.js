@@ -60,8 +60,41 @@ async function init() {
   form.addEventListener('submit', onSave);
   document.getElementById('btn-test').addEventListener('click', testConnection);
   document.getElementById('btn-fetch-models').addEventListener('click', fetchModels);
-  document.getElementById('btn-oauth-chatgpt')?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://platform.openai.com/api-keys' });
+  document.getElementById('btn-oauth-chatgpt')?.addEventListener('click', async () => {
+    const btn = document.getElementById('btn-oauth-chatgpt');
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'OAUTH_CHATGPT' });
+      if (res?.ok) {
+        btn.textContent = 'Code: ' + res.userCode;
+        // Listen for completion
+        const onOAuth = (msg) => {
+          if (msg.type === 'OAUTH_COMPLETE' && msg.provider === 'chatgpt') {
+            btn.textContent = 'Connected ✓';
+            chrome.runtime.onMessage.removeListener(onOAuth);
+            // Reload settings to show the key
+            location.reload();
+          }
+        };
+        chrome.runtime.onMessage.addListener(onOAuth);
+        // Timeout after 5 min
+        setTimeout(() => {
+          chrome.runtime.onMessage.removeListener(onOAuth);
+          if (btn.textContent !== 'Connected ✓') {
+            btn.disabled = false;
+            btn.textContent = 'Get key';
+          }
+        }, 300000);
+      } else {
+        btn.textContent = 'Failed';
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = 'Get key'; }, 2000);
+      }
+    } catch (err) {
+      btn.textContent = 'Error';
+      btn.disabled = false;
+    }
   });
   document.getElementById('btn-clear-memories').addEventListener('click', async () => {
     if (!confirm('Delete all local memories?')) return;
@@ -103,6 +136,25 @@ async function init() {
       el.hidden = el.id !== 'search-fields-' + initVal;
     });
   }
+
+  // Check for pending OAuth
+  chrome.runtime.sendMessage({ type: 'OAUTH_PENDING' }).then(function (res) {
+    if (res?.ok && res.pending) {
+      const btn = document.getElementById('btn-oauth-chatgpt');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Code: ' + res.pending.userCode;
+        const onOAuth = (msg) => {
+          if (msg.type === 'OAUTH_COMPLETE' && msg.provider === 'chatgpt') {
+            btn.textContent = 'Connected ✓';
+            chrome.runtime.onMessage.removeListener(onOAuth);
+            location.reload();
+          }
+        };
+        chrome.runtime.onMessage.addListener(onOAuth);
+      }
+    }
+  });
 
   await refreshMemoryList();
   await testConnection();

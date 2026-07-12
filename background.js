@@ -3494,6 +3494,110 @@ function startChat(message) {
 // Messaging
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// ChatGPT Plus OAuth device flow
+// ---------------------------------------------------------------------------
+function oauthChatgptDeviceFlow() {
+  return getSettings().then(function (settings) {
+    // Device authorization request — user opens URL, enters code, authorizes
+    var clientId = 'p0XOv2qB9EMn41ohKQ4U1dL5gG4mT2ox'; // OpenAI ChatGPT web client
+    return fetch('https://auth.openai.com/oauth/device/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'client_id=' + encodeURIComponent(clientId) + '&scope=openid+profile+email+https://api.openai.com/auth/chatgpt+https://api.openai.com/auth/general',
+    }).then(function (res) {
+      if (!res.ok) return res.json().then(function (e) { throw new Error(e.error_description || e.error || 'Device code request failed'); });
+      return res.json();
+    }).then(function (data) {
+      var deviceCode = data.device_code;
+      var userCode = data.user_code;
+      var verificationUri = data.verification_uri || data.verification_url;
+      var interval = (data.interval || 5) * 1000;
+
+      // Show user the code
+      chrome.tabs.create({ url: verificationUri, active: true });
+      // We store the code so the UI can read it
+      return chrome.storage.session.set({
+        oauthPending: { provider: 'chatgpt', userCode: userCode, verificationUri: verificationUri, deviceCode: deviceCode, interval: interval },
+      }).then(function () {
+        return { ok: true, userCode: userCode, verificationUri: verificationUri };
+      });
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ChatGPT Plus OAuth device flow
+// ---------------------------------------------------------------------------
+var oauthPolls = {};
+
+function oauthChatgptDeviceFlow() {
+  return getSettings().then(function (settings) {
+    var clientId = 'p0XOv2qB9EMn41ohKQ4U1dL5gG4mT2ox';
+    return fetch('https://auth.openai.com/oauth/device/code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'client_id=' + encodeURIComponent(clientId) + '&scope=openid+profile+email+https://api.openai.com/auth/chatgpt+https://api.openai.com/auth/general',
+    }).then(function (res) {
+      if (!res.ok) return res.json().then(function (e) { throw new Error(e.error_description || e.error || 'Device code request failed'); });
+      return res.json();
+    }).then(function (data) {
+      var deviceCode = data.device_code;
+      var userCode = data.user_code;
+      var verificationUri = data.verification_uri || data.verification_url;
+      var interval = (data.interval || 5) * 1000;
+
+      chrome.tabs.create({ url: verificationUri, active: true });
+
+      // Store pending so options page can show the code
+      var pending = { provider: 'chatgpt', userCode: userCode, verificationUri: verificationUri, deviceCode: deviceCode };
+      return chrome.storage.session.set({ oauthPending: pending }).then(function () {
+        // Start polling
+        startOauthPoll('chatgpt', deviceCode, interval, clientId);
+        return { ok: true, userCode: userCode, verificationUri: verificationUri };
+      });
+    });
+  });
+}
+
+function startOauthPoll(provider, deviceCode, interval, clientId) {
+  if (oauthPolls[provider]) clearTimeout(oauthPolls[provider]);
+  function poll() {
+    fetch('https://auth.openai.com/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=' + encodeURIComponent(deviceCode) + '&client_id=' + encodeURIComponent(clientId),
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (data.access_token) {
+          // Success! Store the token
+          clearTimeout(oauthPolls[provider]);
+          delete oauthPolls[provider];
+          getSettings().then(function (settings) {
+            settings.keyChatgpt = data.access_token;
+            chrome.storage.sync.set(settings).catch(function () {});
+          });
+          chrome.storage.session.remove('oauthPending');
+          // Notify any open options page
+          chrome.runtime.sendMessage({ type: 'OAUTH_COMPLETE', provider: 'chatgpt' }).catch(function () {});
+          return;
+        }
+        if (data.error === 'authorization_pending' || data.error === 'slow_down') {
+          oauthPolls[provider] = setTimeout(poll, (data.interval || 5) * 1000);
+          return;
+        }
+        // Expired or denied
+        clearTimeout(oauthPolls[provider]);
+        delete oauthPolls[provider];
+        chrome.storage.session.remove('oauthPending');
+      });
+    }).catch(function () {
+      oauthPolls[provider] = setTimeout(poll, 5000);
+    });
+  }
+  oauthPolls[provider] = setTimeout(poll, interval);
+}
+
 function handleMessage(message, sender) {
   switch (message.type) {
     case 'GET_SETTINGS':
@@ -3818,6 +3922,14 @@ function handleMessage(message, sender) {
         console.log('[YT transcript]', result.debug);
         if (result.transcript) return { ok: true, transcript: result.transcript };
         return { ok: true, transcript: null, debug: result.debug };
+      });
+
+    case 'OAUTH_CHATGPT':
+      return oauthChatgptDeviceFlow();
+
+    case 'OAUTH_PENDING':
+      return chrome.storage.session.get('oauthPending').then(function (data) {
+        return { ok: true, pending: data.oauthPending || null };
       });
 
     default:
