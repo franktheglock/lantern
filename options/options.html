@@ -52,6 +52,7 @@
                 <option value="local">Local (llama.cpp)</option>
                 <option value="openrouter">OpenRouter</option>
                 <option value="openai">OpenAI</option>
+                <option value="chatgpt">ChatGPT Plus</option>
                 <option value="groq">Groq</option>
                 <option value="anthropic">Anthropic</option>
                 <option value="xai">xAI</option>
@@ -95,6 +96,13 @@
           <label class="field">
             <span class="field-label">OpenAI</span>
             <input type="password" id="keyOpenai" placeholder="sk-…" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span class="field-label">ChatGPT Plus</span>
+            <div class="key-with-oauth">
+              <input type="password" id="keyChatgpt" placeholder="Paste API key…" autocomplete="off" />
+              <button type="button" class="btn btn-secondary btn-tiny" id="btn-oauth-chatgpt">Get key</button>
+            </div>
           </label>
           <label class="field">
             <span class="field-label">Groq</span>

@@ -29,6 +29,7 @@ const fields = [
   'keyXai',
   'keyNvidia',
   'keyOpencodego',
+  'keyChatgpt',
   'keyExa',
   'keyParallel',
   'keyTinyfish',
@@ -59,6 +60,9 @@ async function init() {
   form.addEventListener('submit', onSave);
   document.getElementById('btn-test').addEventListener('click', testConnection);
   document.getElementById('btn-fetch-models').addEventListener('click', fetchModels);
+  document.getElementById('btn-oauth-chatgpt')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'https://platform.openai.com/api-keys' });
+  });
   document.getElementById('btn-clear-memories').addEventListener('click', async () => {
     if (!confirm('Delete all local memories?')) return;
     await clearMemories();

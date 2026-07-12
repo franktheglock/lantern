@@ -38,6 +38,7 @@ export const DEFAULTS = {
   keyXai: '',
   keyNvidia: '',
   keyOpencodego: '',
+  keyChatgpt: '',
   keyExa: '',
   keyParallel: '',
   keyTinyfish: '',
