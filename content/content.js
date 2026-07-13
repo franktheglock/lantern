@@ -364,7 +364,11 @@
     if (agentCursorEl) agentCursorEl.style.opacity = '1';
   }
 
-  function agentClick(ref) {
+  function waitForCursor() {
+    return new Promise(function (r) { setTimeout(r, 300); });
+  }
+
+  async function agentClick(ref) {
     const el = resolveRef(ref);
     if (!el) return { ok: false, error: 'Unknown ref: ' + ref + ' (take a new snapshot)' };
     el.scrollIntoView({ block: 'center', inline: 'nearest' });
@@ -377,8 +381,9 @@
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
 
-    // Animate cursor to position
+    // Animate cursor to position first, then click
     agentCursorMove(cx, cy);
+    await waitForCursor();
 
     // Dispatch full mouse events
     const mouseOpts = { bubbles: true, cancelable: true, clientX: cx, clientY: cy, button: 0 };
@@ -400,9 +405,10 @@
       /* ignore */
     }
 
-    // Move cursor to the input
+    // Move cursor to the input first, then type
     const r = el.getBoundingClientRect();
     agentCursorMove(r.left + 10, r.top + r.height / 2);
+    await waitForCursor();
 
     if (clear) {
       if (el.isContentEditable) el.textContent = '';
@@ -533,11 +539,11 @@
       return true;
     }
     if (msg.type === 'AGENT_CLICK') {
-      sendResponse(agentClick(msg.ref));
+      agentClick(msg.ref).then(function (r) { sendResponse(r); }).catch(function (e) { sendResponse({ ok: false, error: String(e) }); });
       return true;
     }
     if (msg.type === 'AGENT_TYPE') {
-      sendResponse(agentType(msg.ref, msg.text, !!msg.clear));
+      agentType(msg.ref, msg.text, !!msg.clear).then(function (r) { sendResponse(r); }).catch(function (e) { sendResponse({ ok: false, error: String(e) }); });
       return true;
     }
     if (msg.type === 'AGENT_PRESS') {
