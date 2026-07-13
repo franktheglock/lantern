@@ -162,16 +162,25 @@ async function init() {
         z-index: 2147483647;
         border-radius: 12px;
         padding: 4px;
-        background: conic-gradient(
-          from var(--glow-angle),
-          transparent 0%,
-          rgba(255, 140, 0, 0.65) 3%,
-          rgba(255, 140, 0, 0.35) 10%,
-          rgba(255, 140, 0, 0.12) 22%,
-          rgba(255, 140, 0, 0.03) 45%,
-          transparent 65%,
-          transparent 100%
-        );
+        background:
+          radial-gradient(
+            ellipse 380px 240px at
+              calc(50% + 38% * cos(var(--glow-angle)))
+              calc(50% + 38% * sin(var(--glow-angle))),
+            rgba(255, 140, 0, 0.55) 0%,
+            rgba(255, 140, 0, 0.18) 35%,
+            transparent 65%
+          ),
+          conic-gradient(
+            from var(--glow-angle),
+            transparent 0%,
+            rgba(255, 140, 0, 0.65) 3%,
+            rgba(255, 140, 0, 0.35) 10%,
+            rgba(255, 140, 0, 0.12) 22%,
+            rgba(255, 140, 0, 0.03) 45%,
+            transparent 65%,
+            transparent 100%
+          );
         animation:
           lantern-glow-wave 5s linear infinite,
           lantern-glow-pulse 2.5s ease-in-out infinite;
