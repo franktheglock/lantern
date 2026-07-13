@@ -161,12 +161,15 @@ async function init() {
         pointer-events: none;
         z-index: 2147483647;
         border-radius: 12px;
-        padding: 3px;
+        padding: 4px;
         background: conic-gradient(
           from var(--glow-angle),
           transparent 0%,
-          rgba(255, 140, 0, 0.55) 1.5%,
-          transparent 4%,
+          rgba(255, 140, 0, 0.65) 3%,
+          rgba(255, 140, 0, 0.35) 10%,
+          rgba(255, 140, 0, 0.12) 22%,
+          rgba(255, 140, 0, 0.03) 45%,
+          transparent 65%,
           transparent 100%
         );
         animation:
