@@ -95,25 +95,22 @@ wss.on("error", (err) => {
  */
 function callExtension(tool, args) {
   return new Promise((resolve, reject) => {
-    if (!extensionWs) {
-      return reject(
-        new Error(
-          "No Lantern extension connected. Open Chrome, make sure Lantern is loaded, then try again."
-        )
-      );
+    function attempt(retries) {
+      if (extensionWs) {
+        const id = `mcp-${++callIdSeq}`;
+        const timer = setTimeout(() => {
+          pendingCalls.delete(id);
+          reject(new Error(`Tool '${tool}' timed out after 30s`));
+        }, 30_000);
+        pendingCalls.set(id, { resolve: (v) => { clearTimeout(timer); resolve(v); }, reject: (e) => { clearTimeout(timer); reject(e); } });
+        extensionWs.send(JSON.stringify({ type: "tool_call", id, tool, args }));
+      } else if (retries > 0) {
+        setTimeout(() => attempt(retries - 1), 1000);
+      } else {
+        reject(new Error("No Lantern extension connected. Open Chrome, make sure Lantern is loaded, then try again."));
+      }
     }
-    const id = `mcp-${++callIdSeq}`;
-    const timer = setTimeout(() => {
-      pendingCalls.delete(id);
-      reject(new Error(`Tool '${tool}' timed out after 30s`));
-    }, 30_000);
-
-    pendingCalls.set(id, {
-      resolve: (v) => { clearTimeout(timer); resolve(v); },
-      reject: (e) => { clearTimeout(timer); reject(e); },
-    });
-
-    extensionWs.send(JSON.stringify({ type: "tool_call", id, tool, args }));
+    attempt(15); // retry for ~15 seconds
   });
 }
 

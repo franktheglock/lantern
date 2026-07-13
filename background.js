@@ -4330,9 +4330,12 @@ chrome.contextMenus.onClicked.addListener(function (info, tab) {
 var mcpBridge = (function () {
   var ws = null;
   var reconnectTimer = null;
+  var reconnectAttempts = 0;
   var mcpActiveTabId = null;
 
   function connect() {
+    // Skip if already connected or connecting
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
     var port = 9847;
     var url = 'ws://localhost:' + port;
     try {
@@ -4344,6 +4347,7 @@ var mcpBridge = (function () {
 
     ws.onopen = function () {
       console.log('[lantern-mcp] Connected to MCP server at', url);
+      reconnectAttempts = 0;
     };
 
     ws.onmessage = function (event) {
@@ -4370,11 +4374,20 @@ var mcpBridge = (function () {
   }
 
   function scheduleReconnect() {
-    if (reconnectTimer) return;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectAttempts++;
+    var delay = Math.min(1000 * reconnectAttempts, 30000);
     reconnectTimer = setTimeout(function () {
       reconnectTimer = null;
       connect();
-    }, 5000);
+    }, delay);
+  }
+
+  function tryReconnect() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    reconnectAttempts = 0;
+    connect();
   }
 
   function sendResult(id, result, error) {
@@ -4643,8 +4656,21 @@ var mcpBridge = (function () {
     getActiveTabId: function () {
       return mcpActiveTabId;
     },
+    tryReconnect: function () {
+      tryReconnect();
+    },
   };
 })();
+
+// Reconnect MCP when user returns to the browser
+chrome.windows.onFocusChanged.addListener(function (windowId) {
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
+    setTimeout(function () { mcpBridge.tryReconnect(); }, 1000);
+  }
+});
+chrome.tabs.onActivated.addListener(function () {
+  mcpBridge.tryReconnect();
+});
 
 chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
   handleMessage(message, sender)
