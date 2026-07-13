@@ -381,15 +381,25 @@ export function createReplyThread(container, opts = {}) {
       startElapsedTimer();
     } else if (last?.type === 'tool' && last.status === 'running') {
       setChevronStatus(toolLabel(last.name));
-      setPreviewLine('', { streaming: false });
-      stopElapsedTimer();
+      var toolSnippet = last.name === 'web_search'
+        ? 'Searching: ' + (last.args?.query || '')
+        : last.name === 'read_url'
+          ? 'Reading: ' + (last.args?.url || '')
+          : toolLabel(last.name);
+      setPreviewLine(toolSnippet, { streaming: false });
+      startElapsedTimer();
     } else if (!done && last?.type === 'thinking') {
       setChevronStatus(`Thinking for ${elapsedSeconds()}s`);
       const tail = tickerText(last.text);
       setPreviewLine(tail ? tail.slice(-480) : '', { streaming: true });
     } else if (!done && last?.type === 'tool') {
       setChevronStatus(toolLabel(last.name));
-      setPreviewLine('', { streaming: false });
+      var toolSnippet = last.name === 'web_search'
+        ? 'Searched: ' + (last.args?.query || '')
+        : last.name === 'read_url'
+          ? 'Read: ' + (last.args?.url || '')
+          : toolLabel(last.name);
+      setPreviewLine(toolSnippet, { streaming: false });
       stopElapsedTimer();
     } else if (done) {
       spinning = false;
