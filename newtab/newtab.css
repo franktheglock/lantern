@@ -240,10 +240,6 @@ body {
               height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
               border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
-/* Search mode: center vertically */
-.search-shell[data-mode='search'] .go-btn {
-  bottom: 50%;
-  transform: translateY(50%);
 }
 .search-shell:not([data-mode='search']) .composer-bar {
   padding-right: 50px;
