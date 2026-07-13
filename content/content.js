@@ -623,11 +623,23 @@
     agentGlowStyle.id = 'lantern-agent-glow';
     agentGlowStyle.textContent = `
       @keyframes lantern-glow-pulse {
-        0%, 100% { border-color: rgba(255, 140, 0, 0.15); }
-        50% { border-color: rgba(255, 140, 0, 0.65); }
+        0%, 100% {
+          box-shadow:
+            inset 0 0 50px 24px rgba(255, 140, 0, 0.06),
+            inset 0 0 20px 8px rgba(255, 140, 0, 0.1);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 70px 32px rgba(255, 140, 0, 0.16),
+            inset 0 0 30px 10px rgba(255, 140, 0, 0.28);
+        }
       }
       @keyframes lantern-glow-appear {
-        from { border-color: rgba(255, 140, 0, 0); }
+        from {
+          box-shadow:
+            inset 0 0 0 0 rgba(255, 140, 0, 0),
+            inset 0 0 0 0 rgba(255, 140, 0, 0);
+        }
       }
       html::after {
         content: '';
@@ -635,12 +647,10 @@
         inset: 0;
         pointer-events: none;
         z-index: 2147483647;
-        box-sizing: border-box;
-        border: 3px solid rgba(255, 140, 0, 0.15);
         border-radius: 12px;
         animation:
-          lantern-glow-appear 0.4s ease-out,
-          lantern-glow-pulse 2s ease-in-out 0.4s infinite;
+          lantern-glow-appear 0.6s ease-out,
+          lantern-glow-pulse 2.5s ease-in-out 0.6s infinite;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);
