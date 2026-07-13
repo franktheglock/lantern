@@ -508,9 +508,15 @@ async function sendMessage(text) {
     await ensureConversation();
   } catch (err) {
     console.error('[Lantern chat] ensureConversation', err);
-    recoverPrompt(userText);
-    alert(err.message || 'Could not start chat');
-    return false;
+    // Retry once after SW warm-up
+    try {
+      await new Promise(r => setTimeout(r, 500));
+      await ensureConversation();
+    } catch (err2) {
+      console.error('[Lantern chat] ensureConversation retry', err2);
+      recoverPrompt(userText);
+      return false;
+    }
   }
 
   hideEmpty();
