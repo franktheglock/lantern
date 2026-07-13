@@ -622,24 +622,13 @@
     agentGlowStyle = document.createElement('style');
     agentGlowStyle.id = 'lantern-agent-glow';
     agentGlowStyle.textContent = `
-      @keyframes lantern-glow-pulse {
-        0%, 100% {
-          box-shadow:
-            inset 0 0 50px 24px rgba(255, 140, 0, 0.06),
-            inset 0 0 20px 8px rgba(255, 140, 0, 0.1);
-        }
-        50% {
-          box-shadow:
-            inset 0 0 70px 32px rgba(255, 140, 0, 0.16),
-            inset 0 0 30px 10px rgba(255, 140, 0, 0.28);
-        }
+      @property --glow-angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
       }
-      @keyframes lantern-glow-appear {
-        from {
-          box-shadow:
-            inset 0 0 0 0 rgba(255, 140, 0, 0),
-            inset 0 0 0 0 rgba(255, 140, 0, 0);
-        }
+      @keyframes lantern-glow-wave {
+        to { --glow-angle: 360deg; }
       }
       html::after {
         content: '';
@@ -648,9 +637,19 @@
         pointer-events: none;
         z-index: 2147483647;
         border-radius: 12px;
-        animation:
-          lantern-glow-appear 0.6s ease-out,
-          lantern-glow-pulse 2.5s ease-in-out 0.6s infinite;
+        padding: 3px;
+        background: conic-gradient(
+          from var(--glow-angle),
+          transparent 0%,
+          rgba(255, 140, 0, 0.55) 1.5%,
+          transparent 4%,
+          transparent 100%
+        );
+        animation: lantern-glow-wave 5s linear infinite;
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);
