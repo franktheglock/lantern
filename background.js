@@ -2256,6 +2256,7 @@ function clearAgentSession(requestId) {
       }
     }
   }
+  }
   agentSessions.delete(requestId);
 }
 
