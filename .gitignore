@@ -2,5 +2,5 @@
 Thumbs.db
 *.log
 node_modules/
-node_modules/
+lantern-mcp/node_modules/
 lib/

@@ -51,9 +51,11 @@ export async function chatCompletion(settings, messages, { onDelta, signal } = {
   const body = {
     messages,
     temperature: settings.temperature ?? 0.7,
-    max_tokens: settings.maxTokens ?? 2048,
     stream: !!settings.stream,
   };
+  // Omit max_tokens when unset (< 0) — let the model/server decide length
+  const mt = settings.maxTokens;
+  if (mt != null && mt >= 0) body.max_tokens = mt;
   if (settings.model) body.model = settings.model;
 
   const res = await fetch(`${base}/v1/chat/completions`, {

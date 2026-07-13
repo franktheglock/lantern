@@ -14,7 +14,7 @@ var DEFAULTS = {
   model: 'Gemma-Test',
   temperature: 0.7,
   maxTokens: -1,
-  maxPageChars: -1,
+  maxPageChars: 12000,
   systemPrompt:
     'You are Lantern, a helpful browsing assistant running locally. Be concise and practical. When page context is provided, use it accurately — quote sparingly and do not invent page content. You have tools to search the web and read URLs; use them when you need current information or page contents rather than guessing.',
   includePageContext: true,
