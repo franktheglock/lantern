@@ -328,6 +328,43 @@ server.tool(
   }
 );
 
+// --- browser_scroll ---
+server.tool(
+  "browser_scroll",
+  "Scroll the active tab window by a pixel delta. Positive = down, negative = up. Default 500.",
+  {
+    delta: z.number().optional().default(500).describe("Pixels to scroll (positive down, negative up)"),
+  },
+  async ({ delta }) => {
+    const result = await callExtension("browser_scroll", { delta });
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+// --- browser_eval ---
+server.tool(
+  "browser_eval",
+  "Evaluate JavaScript in the active tab and return the result. Use to read reactive state, DOM properties, or execute small scripts.",
+  {
+    js: z.string().describe("JavaScript code to execute in the page context"),
+  },
+  async ({ js }) => {
+    const result = await callExtension("browser_eval", { js });
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
+// --- browser_logs ---
+server.tool(
+  "browser_logs",
+  "Get recent console logs from the active tab (log/warn/error, uncaught errors, rejections). Max 40 recent entries.",
+  {},
+  async () => {
+    const result = await callExtension("browser_logs", {});
+    return { content: [{ type: "text", text: result }] };
+  }
+);
+
 // ── Start ──────────────────────────────────────────────────────────────
 
 const transport = new StdioServerTransport();
