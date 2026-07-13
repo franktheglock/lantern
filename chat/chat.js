@@ -65,6 +65,9 @@ let memoriesEnabled = false;
 let attachedImages = [];
 /** Context tabs passed from new tab page */
 let pendingContextTabs = null;
+/** User-selected context tabs on this chat page */
+let selectedContextTabs = new Set();
+let allChatTabs = [];
 
 init().catch((err) => {
   console.error('[Lantern chat] init failed', err);
@@ -154,6 +157,11 @@ async function init() {
   bindModelPicker();
   bindModeToggle();
   bindThreadDock();
+
+  // Context tabs
+  loadChatContextTabs();
+  chrome.tabs.onUpdated.addListener(loadChatContextTabs);
+  chrome.tabs.onRemoved.addListener(loadChatContextTabs);
 
   // Remember this tab so agent tools don't yank focus away
   try {
@@ -567,6 +575,76 @@ function clearAttachments() {
   btnAttach?.classList.remove('has-image');
 }
 
+// ── Context tabs (chat page) ──
+
+async function loadChatContextTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const myUrl = location.href;
+    allChatTabs = tabs
+      .filter((t) => t.id && t.url && !t.url.startsWith('chrome://') && t.url !== myUrl)
+      .map((t) => ({ id: t.id, title: t.title || '', url: t.url, favIconUrl: t.favIconUrl || '' }));
+    const existing = new Set(allChatTabs.map((t) => t.id));
+    selectedContextTabs = new Set([...selectedContextTabs].filter((id) => existing.has(id)));
+    renderChatContextTabs();
+  } catch { /* ignore */ }
+}
+
+function renderChatContextTabs() {
+  const wrap = document.getElementById('context-tabs-chat');
+  const list = document.getElementById('context-list-chat');
+  const count = document.getElementById('context-count-chat');
+  if (!wrap || !list) return;
+  list.innerHTML = '';
+  if (!allChatTabs.length) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  allChatTabs.forEach((tab) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'context-tab';
+    if (selectedContextTabs.has(tab.id)) btn.classList.add('is-active');
+    if (tab.favIconUrl) {
+      const img = document.createElement('img');
+      img.className = 'context-tab-fav';
+      img.src = tab.favIconUrl;
+      img.alt = '';
+      img.addEventListener('error', () => { img.style.display = 'none'; });
+      btn.appendChild(img);
+    }
+    const title = document.createElement('span');
+    title.className = 'context-tab-title';
+    title.textContent = tab.title || tab.url;
+    btn.appendChild(title);
+    btn.addEventListener('click', () => {
+      if (selectedContextTabs.has(tab.id)) {
+        selectedContextTabs.delete(tab.id);
+        btn.classList.remove('is-active');
+      } else {
+        selectedContextTabs.add(tab.id);
+        btn.classList.add('is-active');
+      }
+      if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
+    });
+    list.appendChild(btn);
+  });
+  if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
+}
+
+async function getSelectedContextTabInfo() {
+  if (!selectedContextTabs.size && !pendingContextTabs) return null;
+  // Combine user-selected tabs with any pending from new tab
+  const tabIds = [...selectedContextTabs];
+  if (pendingContextTabs?.tabs?.length) {
+    return pendingContextTabs; // already scraped from new tab
+  }
+  if (!tabIds.length) return null;
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'SCRAPE_TABS', tabIds });
+    if (res?.ok) return { tabs: res.tabs };
+  } catch { /* ignore */ }
+  return null;
+}
+
 function onSendClick() {
   if (streaming) {
     if (currentRequestId) {
@@ -640,7 +718,7 @@ async function sendMessage(text) {
       agentMode: chatMode === 'agent',
       controllerTabId: controllerTabId,
       images: imageUrls.length ? imageUrls : undefined,
-      contextTabs: pendingContextTabs || undefined,
+      contextTabs: await getSelectedContextTabInfo(),
     });
 
     // Clear one-shot context after first send

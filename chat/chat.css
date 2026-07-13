@@ -1072,6 +1072,82 @@ body {
   background: var(--accent-soft);
 }
 
+/* Context tabs (chat page) */
+.context-tabs-chat {
+  margin-bottom: 6px;
+  padding: 0 2px;
+}
+
+.context-tabs-chat[hidden] { display: none; }
+
+.context-tabs-chat .context-tabs-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.context-tabs-chat .context-tabs-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.context-tabs-chat .context-tabs-count {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--accent-text);
+}
+
+.context-tabs-chat .context-tabs-list {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.context-tabs-chat .context-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 180px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.context-tabs-chat .context-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.context-tabs-chat .context-tab.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.context-tabs-chat .context-tab-fav {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.context-tabs-chat .context-tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Image previews above composer */
 .image-previews {
   display: flex;
