@@ -622,17 +622,12 @@
     agentGlowStyle = document.createElement('style');
     agentGlowStyle.id = 'lantern-agent-glow';
     agentGlowStyle.textContent = `
-      @property --lantern-angle {
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-      }
-      @keyframes lantern-glow-wave {
-        to { --lantern-angle: 360deg; }
-      }
       @keyframes lantern-glow-pulse {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
+        0%, 100% { border-color: rgba(255, 140, 0, 0.15); }
+        50% { border-color: rgba(255, 140, 0, 0.65); }
+      }
+      @keyframes lantern-glow-appear {
+        from { border-color: rgba(255, 140, 0, 0); }
       }
       html::after {
         content: '';
@@ -640,24 +635,12 @@
         inset: 0;
         pointer-events: none;
         z-index: 2147483647;
+        box-sizing: border-box;
+        border: 3px solid rgba(255, 140, 0, 0.15);
         border-radius: 12px;
-        padding: 3px;
-        background: conic-gradient(
-          from var(--lantern-angle),
-          transparent,
-          rgba(255, 140, 0, 0.8) 10%,
-          rgba(255, 140, 0, 1) 15%,
-          rgba(255, 140, 0, 0.4) 20%,
-          transparent 30%
-        );
-        -webkit-mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
         animation:
-          lantern-glow-wave 3s linear infinite,
-          lantern-glow-pulse 2s ease-in-out infinite;
+          lantern-glow-appear 0.4s ease-out,
+          lantern-glow-pulse 2s ease-in-out 0.4s infinite;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);

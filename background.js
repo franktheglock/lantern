@@ -2255,7 +2255,20 @@ function ensureAgentSession(requestId, originTabId, controllerTabId, sidebarMode
 
 function agentGlowTab(tabId, on) {
   try {
-    chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on }).catch(function () {});
+    chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on }).catch(function () {
+      // Content script may not be loaded yet — inject it and retry
+      return chrome.scripting
+        .executeScript({
+          target: { tabId: tabId },
+          files: ['content/content.js'],
+        })
+        .then(function () {
+          return chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on });
+        })
+        .catch(function () {
+          /* still failed, give up */
+        });
+    });
   } catch (e) {
     /* ignore */
   }

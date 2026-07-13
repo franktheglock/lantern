@@ -157,10 +157,11 @@ async function init() {
 
   chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
-  // Read handoff first — never block on sidebar
-  const pending = await consumePendingPrompt();
+  // Read handoff first — check mode BEFORE consuming (consumePendingPrompt deletes it)
   const fromUrl = readQueryParam('q');
-  const q = (pending || fromUrl || '').trim();
+  const pendingObj = await consumePendingPrompt();
+  const pendingMode = pendingObj.mode || readQueryParam('mode') || '';
+  const q = (pendingObj.text || fromUrl || '').trim();
   const cid = (readQueryParam('c') || '').trim();
 
   // Load provider + model before sending any message so selectedProvider is set
@@ -172,8 +173,18 @@ async function init() {
   loadChatSettingsFlags().catch(() => {});
   autoResize();
 
+  // Auto-enable agent mode from URL param or session storage handoff
+  const wantsAgent = pendingMode === 'agent';
+  if (wantsAgent) {
+    // Wait for settings flags to load, then try enabling
+    await loadChatSettingsFlags();
+    if (agentModeAllowed) {
+      setChatMode('agent');
+    }
+  }
+
   console.info('[Lantern chat] boot', {
-    hasPending: !!pending,
+    hasPending: !!pendingObj.text,
     hasUrlQ: !!fromUrl,
     qPreview: q ? q.slice(0, 80) : '',
     cid,
@@ -263,18 +274,18 @@ function recoverPrompt(text) {
 /** Read + clear one-shot prompt from new tab */
 async function consumePendingPrompt() {
   try {
-    if (!chrome.storage?.session) return '';
+    if (!chrome.storage?.session) return { text: '', mode: '' };
     const data = await chrome.storage.session.get('lanternPendingChat');
     const pending = data?.lanternPendingChat;
-    if (!pending?.text) return '';
+    if (!pending?.text) return { text: '', mode: '' };
     if (Date.now() - (pending.at || 0) > 60000) {
       await chrome.storage.session.remove('lanternPendingChat');
-      return '';
+      return { text: '', mode: '' };
     }
     await chrome.storage.session.remove('lanternPendingChat');
-    return String(pending.text).trim();
+    return { text: String(pending.text).trim(), mode: pending.mode || '' };
   } catch {
-    return '';
+    return { text: '', mode: '' };
   }
 }
 
