@@ -12,7 +12,8 @@
     "tabs",
     "bookmarks",
     "favicon",
-    "identity"
+    "identity",
+    "alarms"
   ],
   "host_permissions": [
     "http://*/*",

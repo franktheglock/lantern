@@ -4254,7 +4254,17 @@ chrome.tabs.onActivated.addListener(function (activeInfo) {
   }).catch(function () {});
 });
 
+// Keep service worker alive for MCP connections
+chrome.alarms.onAlarm.addListener(function (alarm) {
+  if (alarm.name === 'lantern-keepalive') {
+    mcpBridge.tryReconnect();
+  }
+});
+
 chrome.runtime.onInstalled.addListener(function () {
+  try {
+    chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 });
+  } catch (e) { /* ignore */ }
   try {
     chrome.contextMenus.removeAll(function () {
       try {
