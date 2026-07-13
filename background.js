@@ -2208,37 +2208,41 @@ function ensureAgentSession(requestId, originTabId, controllerTabId, sidebarMode
   s = {
     requestId: requestId,
     originTabId: originTabId != null ? originTabId : null,
-    /** Chat UI tab — never steal focus away from this during agent runs */
     controllerTabId: controllerTabId != null ? controllerTabId : null,
     allowedTabIds: allowed,
     activeTabId: originTabId != null ? originTabId : null,
     autoApproveMutations: false,
     stepCount: 0,
     pendingApprovals: {},
-    /** Side panel stays visible even when other tabs are focused */
     sidebarMode: !!sidebarMode,
   };
   agentSessions.set(requestId, s);
+  // Light up the active tab
+  if (s.activeTabId != null) agentGlowTab(s.activeTabId, true);
   return s;
 }
 
-/** Keep the Lantern chat tab focused so the conversation stays visible. */
-function refocusControllerTab(session) {
-  if (!session || session.sidebarMode) return Promise.resolve();
-  if (session.controllerTabId == null) return Promise.resolve();
-  return chrome.tabs
-    .update(session.controllerTabId, { active: true })
-    .then(function () {
-      return true;
-    })
-    .catch(function () {
-      return false;
-    });
+function agentGlowTab(tabId, on) {
+  try {
+    chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on }).catch(function () {});
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+function switchAgentTab(session, newTabId) {
+  var oldTabId = session.activeTabId;
+  session.activeTabId = newTabId;
+  if (oldTabId != null && oldTabId !== newTabId) agentGlowTab(oldTabId, false);
+  if (newTabId != null) agentGlowTab(newTabId, true);
 }
 
 function clearAgentSession(requestId) {
   var s = agentSessions.get(requestId);
-  if (s && s.pendingApprovals) {
+  if (s) {
+    // Remove glow from the active tab
+    if (s.activeTabId != null) agentGlowTab(s.activeTabId, false);
+    if (s.pendingApprovals) {
     var keys = Object.keys(s.pendingApprovals);
     var i;
     for (i = 0; i < keys.length; i++) {
@@ -2321,7 +2325,7 @@ function resolveAgentActiveTab(session) {
   }
   var ids = Object.keys(session.allowedTabIds);
   if (!ids.length) return Promise.reject(new Error('No agent tabs available'));
-  session.activeTabId = Number(ids[0]);
+  switchAgentTab(session, Number(ids[0]));
   return Promise.resolve(session.activeTabId);
 }
 
@@ -2379,7 +2383,7 @@ function executeBrowserTool(settings, session, name, args, callId) {
         .create({ url: openUrl, active: foreground })
         .then(function (tab) {
           session.allowedTabIds[String(tab.id)] = true;
-          session.activeTabId = tab.id;
+          switchAgentTab(session, tab.id);
           return refocusControllerTab(session).then(function () {
             return JSON.stringify({
               ok: true,
@@ -2400,7 +2404,7 @@ function executeBrowserTool(settings, session, name, args, callId) {
         return Promise.resolve(JSON.stringify({ error: 'Tab not in agent session' }));
       }
       // Logical switch only — do not activate the tab (keeps chat in front)
-      session.activeTabId = switchId;
+      switchAgentTab(session, switchId);
       return refocusControllerTab(session).then(function () {
         return JSON.stringify({
           ok: true,
@@ -2420,6 +2424,8 @@ function executeBrowserTool(settings, session, name, args, callId) {
             return JSON.stringify({ error: 'URL not allowed: ' + navUrl });
           }
           return chrome.tabs.update(tabId, { url: navUrl }).then(function () {
+            // Re-glow after navigation (page reload kills injected styles)
+            setTimeout(function () { agentGlowTab(tabId, true); }, 2000);
             return refocusControllerTab(session).then(function () {
               return JSON.stringify({ ok: true, tabId: tabId, url: navUrl });
             });
@@ -2427,6 +2433,7 @@ function executeBrowserTool(settings, session, name, args, callId) {
         }
         if (action === 'reload') {
           return chrome.tabs.reload(tabId).then(function () {
+            setTimeout(function () { agentGlowTab(tabId, true); }, 2000);
             return refocusControllerTab(session).then(function () {
               return JSON.stringify({ ok: true, action: 'reload' });
             });
@@ -2434,6 +2441,7 @@ function executeBrowserTool(settings, session, name, args, callId) {
         }
         if (action === 'back') {
           return chrome.tabs.goBack(tabId).then(function () {
+            setTimeout(function () { agentGlowTab(tabId, true); }, 2000);
             return refocusControllerTab(session).then(function () {
               return JSON.stringify({ ok: true, action: 'back' });
             });
@@ -2441,6 +2449,7 @@ function executeBrowserTool(settings, session, name, args, callId) {
         }
         if (action === 'forward') {
           return chrome.tabs.goForward(tabId).then(function () {
+            setTimeout(function () { agentGlowTab(tabId, true); }, 2000);
             return refocusControllerTab(session).then(function () {
               return JSON.stringify({ ok: true, action: 'forward' });
             });
