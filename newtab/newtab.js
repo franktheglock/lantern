@@ -29,8 +29,6 @@ const mpModelListNt = document.getElementById('mp-model-list-nt');
 const mpViewProvidersNt = document.getElementById('mp-view-providers-nt');
 const mpViewModelsNt = document.getElementById('mp-view-models-nt');
 const mpBackNt = document.getElementById('mp-back-nt');
-const modeChatNt = document.getElementById('mode-chat-nt');
-const modeAgentNt = document.getElementById('mode-agent-nt');
 const contextTabs = document.getElementById('context-tabs');
 const contextList = document.getElementById('context-list');
 const contextCount = document.getElementById('context-count');
@@ -130,14 +128,6 @@ async function init() {
 
   // Model picker
   loadModelPicker().catch(() => {});
-
-  // In-bar mode toggle
-  modeChatNt?.addEventListener('click', () => { setMode('chat'); saveMode('chat'); });
-  modeAgentNt?.addEventListener('click', () => {
-    if (!agentModeAllowed) { chrome.runtime.openOptionsPage(); return; }
-    setMode('agent');
-    saveMode('agent');
-  });
 
   // Model picker
   mpTriggerNt?.addEventListener('click', (e) => {
@@ -271,11 +261,6 @@ function setMode(mode) {
     tab.setAttribute('aria-selected', selected ? 'true' : 'false');
     tab.hidden = tab.dataset.mode === 'agent' && !agentModeAllowed;
   }
-
-  // In-bar toggle
-  modeChatNt?.classList.toggle('is-active', mode === 'chat');
-  modeAgentNt?.classList.toggle('is-active', mode === 'agent');
-  modeAgentNt?.classList.toggle('is-disabled', !agentModeAllowed);
 
   // Position the sliding indicator
   requestAnimationFrame(() => positionIndicator());
