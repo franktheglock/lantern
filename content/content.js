@@ -579,15 +579,18 @@
     agentGlowStyle = document.createElement('style');
     agentGlowStyle.id = 'lantern-agent-glow';
     agentGlowStyle.textContent = `
+      @keyframes lantern-glow-pulse {
+        0%, 100% { box-shadow: inset 0 0 30px rgba(255, 140, 0, 0.3), 0 0 25px rgba(255, 140, 0, 0.15); }
+        50% { box-shadow: inset 0 0 60px rgba(255, 140, 0, 0.5), 0 0 50px rgba(255, 140, 0, 0.25); }
+      }
       html::after {
         content: '';
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 2147483647;
-        border: 3px solid rgba(255, 140, 0, 0.5);
-        box-shadow: inset 0 0 20px rgba(255, 140, 0, 0.15);
         border-radius: 12px;
+        animation: lantern-glow-pulse 2s ease-in-out infinite;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);
