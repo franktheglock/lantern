@@ -471,10 +471,11 @@ function renderProviderList() {
     btn.type = 'button';
     btn.className = 'mp-item';
     if (p.id === selectedProvider) btn.classList.add('is-active');
-    const iconUrl = p.icon ? `../assets/providers/${p.icon}` : '';
-    const iconHtml = iconUrl
-      ? `<img src="${iconUrl}" alt="" width="18" height="18" style="border-radius:4px;flex-shrink:0" onerror="this.style.display='none'" />`
-      : '';
+    const iconFile = (p.icon || '').includes('.') ? p.icon : (p.icon || 'llamacpp') + '.svg';
+    const iconUrl = typeof chrome !== 'undefined' && chrome.runtime?.getURL
+      ? chrome.runtime.getURL('assets/providers/' + iconFile)
+      : '../assets/providers/' + iconFile;
+    const iconHtml = `<img src="${iconUrl}" alt="" width="18" height="18" style="border-radius:4px;flex-shrink:0" onerror="this.style.display='none'" />`;
     btn.innerHTML = `${iconHtml}<span>${p.label}</span>`;
     btn.addEventListener('click', () => selectProvider(p));
     mpProviderListNt.appendChild(btn);
