@@ -4,6 +4,30 @@
  */
 
 (function () {
+  // ── Console log capture ──
+  var agentLogs = [];
+  var LOG_MAX = 200;
+  function captureLog(level, args) {
+    var msg = (args || []).map(function (a) {
+      try { return typeof a === 'object' ? JSON.stringify(a).slice(0, 500) : String(a); }
+      catch (e) { return String(a); }
+    }).join(' ');
+    agentLogs.push({ level: level, text: msg.slice(0, 500), at: Date.now() });
+    if (agentLogs.length > LOG_MAX) agentLogs.shift();
+  }
+  var _log = console.log, _warn = console.warn, _err = console.error;
+  console.log = function () { captureLog('log', Array.prototype.slice.call(arguments)); return _log.apply(console, arguments); };
+  console.warn = function () { captureLog('warn', Array.prototype.slice.call(arguments)); return _warn.apply(console, arguments); };
+  console.error = function () { captureLog('error', Array.prototype.slice.call(arguments)); return _err.apply(console, arguments); };
+  // Also capture uncaught errors
+  window.addEventListener('error', function (e) {
+    captureLog('error', ['Uncaught: ' + (e.message || e.error || String(e)) + ' at ' + (e.filename || '') + ':' + (e.lineno || '')]);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    captureLog('error', ['Unhandled rejection: ' + (e.reason ? String(e.reason) : String(e))]);
+  });
+
+(function () {
   if (window.__lanternInjected) return;
   window.__lanternInjected = true;
 
@@ -482,6 +506,26 @@
     return { ok: true, result: { count: count, matches: results } };
   }
 
+  function agentEval(js) {
+    if (!js || !String(js).trim()) return { ok: false, error: 'Missing JavaScript' };
+    try {
+      var result = (0, eval)(String(js));
+      var out = typeof result === 'undefined' ? 'undefined' : (result === null ? 'null' : String(result));
+      return { ok: true, result: out.slice(0, 2000) };
+    } catch (err) {
+      return { ok: true, result: 'Error: ' + (err.message || String(err)).slice(0, 500) };
+    }
+  }
+
+  function agentLogs() {
+    var recent = agentLogs.slice(-40);
+    var text = recent.map(function (l) {
+      var time = new Date(l.at).toISOString().slice(11, 19);
+      return '[' + time + '] [' + l.level + '] ' + l.text;
+    }).join('\n');
+    return { ok: true, count: recent.length, total: agentLogs.length, logs: text || '(no logs)' };
+  }
+
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !msg.type) return;
     if (msg.type === 'AGENT_SNAPSHOT') {
@@ -502,6 +546,14 @@
     }
     if (msg.type === 'AGENT_SCROLL') {
       sendResponse(agentScroll(msg.delta));
+      return true;
+    }
+    if (msg.type === 'AGENT_EVAL') {
+      sendResponse(agentEval(String(msg.js || '')));
+      return true;
+    }
+    if (msg.type === 'AGENT_LOGS') {
+      sendResponse(agentLogs());
       return true;
     }
     if (msg.type === 'AGENT_FIND') {
@@ -547,4 +599,6 @@
       agentGlowStyle = null;
     }
   }
+})();
+
 })();

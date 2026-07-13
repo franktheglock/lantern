@@ -409,6 +409,26 @@ var TOOL_DEFS_AGENT = [
   {
     type: 'function',
     function: {
+      name: 'browser_eval',
+      description: 'Evaluate JavaScript in the active tab and return the result. Use to read reactive state, DOM properties, or execute small scripts.',
+      parameters: {
+        type: 'object',
+        properties: { js: { type: 'string', description: 'JavaScript code to execute' } },
+        required: ['js'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_logs',
+      description: 'Get recent console logs from the active tab (log/warn/error, uncaught errors, rejections). Max 40 recent entries.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'browser_find',
       description: 'Find text on the active agent tab. Returns snippets with surrounding context and element refs when the match falls inside a snapshotted interactive. Max 20 results.',
       parameters: {
@@ -2547,6 +2567,21 @@ function executeBrowserTool(settings, session, name, args, callId) {
         });
       }
 
+      if (name === 'browser_eval') {
+        return sendToAgentTab(tabId, {
+          type: 'AGENT_EVAL',
+          js: String(args.js || ''),
+        }).then(function (res) {
+          return JSON.stringify(res || { error: 'Eval failed' });
+        });
+      }
+
+      if (name === 'browser_logs') {
+        return sendToAgentTab(tabId, { type: 'AGENT_LOGS' }).then(function (res) {
+          return JSON.stringify(res || { error: 'Logs failed' });
+        });
+      }
+
       return JSON.stringify({ error: 'Unknown browser tool: ' + name });
     });
   });
@@ -4535,6 +4570,25 @@ var mcpBridge = (function () {
             delta: args.delta ?? args.amount ?? 500,
           }).then(function (res) {
             return JSON.stringify(res || { error: 'Scroll failed' });
+          });
+        });
+        break;
+
+      case 'browser_eval':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, {
+            type: 'AGENT_EVAL',
+            js: String(args.js || ''),
+          }).then(function (res) {
+            return JSON.stringify(res || { error: 'Eval failed' });
+          });
+        });
+        break;
+
+      case 'browser_logs':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, { type: 'AGENT_LOGS' }).then(function (res) {
+            return JSON.stringify(res || { error: 'Logs failed' });
           });
         });
         break;
