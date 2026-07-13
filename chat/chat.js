@@ -157,16 +157,20 @@ async function init() {
 
   chrome.runtime.onMessage.addListener(onRuntimeMessage);
 
-  // Load models into picker (non-blocking for prompt path)
-  loadModelPicker().catch((err) => console.warn('[Lantern chat] models', err));
-  loadChatSettingsFlags().catch(() => {});
-  autoResize();
-
   // Read handoff first — never block on sidebar
   const pending = await consumePendingPrompt();
   const fromUrl = readQueryParam('q');
   const q = (pending || fromUrl || '').trim();
   const cid = (readQueryParam('c') || '').trim();
+
+  // Load provider + model before sending any message so selectedProvider is set
+  if (q || cid) {
+    await loadModelPicker();
+  } else {
+    loadModelPicker().catch((err) => console.warn('[Lantern chat] models', err));
+  }
+  loadChatSettingsFlags().catch(() => {});
+  autoResize();
 
   console.info('[Lantern chat] boot', {
     hasPending: !!pending,
