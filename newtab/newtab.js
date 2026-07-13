@@ -471,7 +471,11 @@ function renderProviderList() {
     btn.type = 'button';
     btn.className = 'mp-item';
     if (p.id === selectedProvider) btn.classList.add('is-active');
-    btn.innerHTML = `<span>${p.label}</span>`;
+    const iconUrl = p.icon ? `../assets/providers/${p.icon}` : '';
+    const iconHtml = iconUrl
+      ? `<img src="${iconUrl}" alt="" width="18" height="18" style="border-radius:4px;flex-shrink:0" onerror="this.style.display='none'" />`
+      : '';
+    btn.innerHTML = `${iconHtml}<span>${p.label}</span>`;
     btn.addEventListener('click', () => selectProvider(p));
     mpProviderListNt.appendChild(btn);
   });

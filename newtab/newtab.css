@@ -177,6 +177,11 @@ body {
   max-height: 320px;
   padding: 4px 4px 0;
   box-sizing: border-box;
+  transition:
+    min-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    font-size 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   field-sizing: content;
 }
 
@@ -193,8 +198,12 @@ body {
 }
 
 /* Search mode: hide composer bar, shrink textarea */
+.search-shell .composer-bar {
+  transition: opacity 0.25s ease;
+}
 .search-shell[data-mode='search'] .composer-bar {
-  display: none;
+  opacity: 0;
+  pointer-events: none;
 }
 .search-shell[data-mode='search'] #query {
   min-height: 24px;
