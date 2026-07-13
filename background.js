@@ -3129,6 +3129,20 @@ function buildUserContent(text, images) {
   return parts;
 }
 
+function scrapeTabsForContext(tabIds) {
+  if (!tabIds || !tabIds.length) return Promise.resolve({ ok: true, tabs: [] });
+  var tasks = tabIds.map(function (tabId) {
+    return chrome.tabs.get(tabId).then(function (tab) {
+      return { id: tabId, title: tab.title || '', url: tab.url || '' };
+    }).catch(function () {
+      return null;
+    });
+  });
+  return Promise.all(tasks).then(function (results) {
+    return { ok: true, tabs: results.filter(Boolean) };
+  });
+}
+
 function formatPageContext(opts) {
   var parts = [];
   if (opts.title) parts.push('Title: ' + opts.title);
@@ -3463,6 +3477,7 @@ function startChat(message) {
           systemPrompt: settings.systemPrompt,
           // Page context is injected live into system prompt only — never persisted
           pageContext: usePageContext ? pageContext : '',
+          contextsTabInfo: message.contextTabs,
           memories: memories,
           history: history,
           userText: userText,
@@ -3779,6 +3794,17 @@ function handleMessage(message, sender) {
         return chrome.storage.session.remove('pendingPrompt').then(function () {
           return { ok: true, pending: pending };
         });
+      });
+
+    case 'SCRAPE_TABS':
+      return scrapeTabsForContext(message.tabIds);
+
+    case 'PROVIDER_ICON':
+      var pdef = getProviderDef(message.provider);
+      var iconFile = (pdef && pdef.icon) || 'llamacpp.svg';
+      return Promise.resolve({
+        ok: true,
+        iconUrl: chrome.runtime.getURL('assets/providers/' + iconFile),
       });
 
     case 'HEALTH':

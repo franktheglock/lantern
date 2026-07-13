@@ -63,6 +63,8 @@ let agentModeAllowed = false;
 let memoriesEnabled = false;
 /** @type {{ dataUrl: string, name: string }[]} */
 let attachedImages = [];
+/** Context tabs passed from new tab page */
+let pendingContextTabs = null;
 
 init().catch((err) => {
   console.error('[Lantern chat] init failed', err);
@@ -169,6 +171,14 @@ async function init() {
   const pendingMode = pendingObj.mode || readQueryParam('mode') || '';
   const q = (pendingObj.text || fromUrl || '').trim();
   const cid = (readQueryParam('c') || '').trim();
+
+  // Capture images and context from new-tab handoff
+  if (pendingObj.images?.length) {
+    attachedImages = pendingObj.images.map((url) => ({ dataUrl: url, name: 'image' }));
+  }
+  if (pendingObj.contextTabs) pendingContextTabs = pendingObj.contextTabs;
+  if (pendingObj.model) selectedModel = pendingObj.model;
+  if (pendingObj.provider) selectedProvider = pendingObj.provider;
 
   // Load provider + model before sending any message so selectedProvider is set
   if (q || cid) {
@@ -280,18 +290,25 @@ function recoverPrompt(text) {
 /** Read + clear one-shot prompt from new tab */
 async function consumePendingPrompt() {
   try {
-    if (!chrome.storage?.session) return { text: '', mode: '' };
+    if (!chrome.storage?.session) return { text: '', mode: '', images: [], contextTabs: null, model: '', provider: '' };
     const data = await chrome.storage.session.get('lanternPendingChat');
     const pending = data?.lanternPendingChat;
-    if (!pending?.text) return { text: '', mode: '' };
+    if (!pending?.text) return { text: '', mode: '', images: [], contextTabs: null, model: '', provider: '' };
     if (Date.now() - (pending.at || 0) > 60000) {
       await chrome.storage.session.remove('lanternPendingChat');
-      return { text: '', mode: '' };
+      return { text: '', mode: '', images: [], contextTabs: null, model: '', provider: '' };
     }
     await chrome.storage.session.remove('lanternPendingChat');
-    return { text: String(pending.text).trim(), mode: pending.mode || '' };
+    return {
+      text: String(pending.text).trim(),
+      mode: pending.mode || '',
+      images: pending.images || [],
+      contextTabs: pending.contextTabs || null,
+      model: pending.model || '',
+      provider: pending.provider || '',
+    };
   } catch {
-    return { text: '', mode: '' };
+    return { text: '', mode: '', images: [], contextTabs: null, model: '', provider: '' };
   }
 }
 
@@ -623,7 +640,11 @@ async function sendMessage(text) {
       agentMode: chatMode === 'agent',
       controllerTabId: controllerTabId,
       images: imageUrls.length ? imageUrls : undefined,
+      contextTabs: pendingContextTabs || undefined,
     });
+
+    // Clear one-shot context after first send
+    pendingContextTabs = null;
 
     if (!res || res.ok === false) {
       const errMsg = (res && res.error) || 'Background did not accept chat request';

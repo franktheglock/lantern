@@ -18,6 +18,14 @@ const modeRow = document.getElementById('mode-row');
 const modeIndicator = document.querySelector('.mode-indicator');
 const modeTabs = document.querySelectorAll('.mode-tab');
 const suggestDropdown = document.getElementById('suggest-dropdown');
+const btnAttach = document.getElementById('btn-attach');
+const fileInput = document.getElementById('file-input');
+const btnModel = document.getElementById('btn-model');
+const modelTriggerIcon = document.getElementById('model-trigger-icon');
+const modelLabel = document.getElementById('model-label');
+const contextTabs = document.getElementById('context-tabs');
+const contextList = document.getElementById('context-list');
+const contextCount = document.getElementById('context-count');
 
 /** Mode definitions: id → { label, icon, placeholder, hint, color } */
 const MODES = {
@@ -54,6 +62,15 @@ const MODE_ORDER = ['search', 'chat', 'agent'];
 let settings = null;
 let chatMode = 'search';
 let agentModeAllowed = false;
+/** @type {{ dataUrl: string, name: string }[]} */
+let attachedImages = [];
+/** @type {{ id: number, title: string, url: string, favIconUrl: string }[]} */
+let allTabs = [];
+/** Set of selected tab IDs for context */
+let selectedContextTabs = new Set();
+/** Selected model from picker */
+let selectedModel = '';
+let selectedProvider = 'local';
 /** Lantern-only pins (not browser bookmarks) */
 let allPins = [];
 let ghostPinEl = null;
@@ -95,9 +112,22 @@ async function init() {
   applyMode();
   form.addEventListener('submit', onSubmit);
   query.addEventListener('keydown', onKeyDown);
-  query.addEventListener('input', onSuggestInput);
+  query.addEventListener('input', onQueryInput);
   query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
   btnTheme.addEventListener('click', toggleTheme);
+
+  // Attach button
+  btnAttach?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', onFilesSelected);
+
+  // Model picker trigger
+  btnModel?.addEventListener('click', () => chrome.runtime.openOptionsPage());
+  loadModelLabel();
+
+  // Context tabs
+  loadContextTabs();
+  chrome.tabs.onUpdated.addListener(loadContextTabs);
+  chrome.tabs.onRemoved.addListener(loadContextTabs);
 
   // Mode tab clicks
   for (const tab of modeTabs) {
@@ -217,6 +247,9 @@ function setMode(mode) {
   if (!document.body.classList.contains('minimal')) {
     query.placeholder = def.placeholder;
   }
+
+  // Refresh context tabs when switching mode
+  loadContextTabs();
 }
 
 /** Snap the indicator pill to the active mode tab. */
@@ -237,13 +270,19 @@ let suggestTimer = 0;
 let suggestIndex = -1;
 let suggestItems = [];
 
-/** Debounced input → fetch suggestions */
-function onSuggestInput() {
+/** Debounced input → fetch suggestions + auto-resize */
+function onQueryInput() {
+  autoResize();
   clearTimeout(suggestTimer);
   if (chatMode !== 'search') { closeSuggest(); return; }
   const q = query.value.trim();
   if (!q || q.length < 2) { closeSuggest(); return; }
   suggestTimer = setTimeout(() => fetchSuggestions(q), 150);
+}
+
+function autoResize() {
+  query.style.height = 'auto';
+  query.style.height = Math.min(query.scrollHeight, 200) + 'px';
 }
 
 async function fetchSuggestions(q) {
@@ -306,6 +345,131 @@ function closeSuggest() {
   suggestDropdown.innerHTML = '';
   suggestItems = [];
   suggestIndex = -1;
+}
+
+// ── Attachments ──
+
+function onFilesSelected() {
+  const files = Array.from(fileInput?.files || []);
+  if (fileInput) fileInput.value = '';
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = () => {
+      attachedImages.push({ dataUrl: reader.result, name: file.name });
+      renderImagePreviews();
+      btnAttach?.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function renderImagePreviews() {
+  let wrap = searchShell.querySelector('.image-previews');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'image-previews';
+    searchShell.insertBefore(wrap, searchShell.querySelector('.composer-bar'));
+  }
+  wrap.innerHTML = '';
+  attachedImages.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.className = 'image-preview';
+    div.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" />`;
+    const rm = document.createElement('button');
+    rm.className = 'image-preview-remove';
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      attachedImages.splice(i, 1);
+      renderImagePreviews();
+      if (!attachedImages.length) btnAttach?.classList.remove('has-image');
+    });
+    div.appendChild(rm);
+    wrap.appendChild(div);
+  });
+  if (!attachedImages.length && wrap) wrap.remove();
+}
+
+function clearAttachments() {
+  attachedImages = [];
+  const wrap = searchShell.querySelector('.image-previews');
+  if (wrap) wrap.remove();
+  btnAttach?.classList.remove('has-image');
+}
+
+// ── Model label ──
+
+async function loadModelLabel() {
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+    const s = res?.settings || res || {};
+    selectedProvider = s.provider || 'local';
+    selectedModel = s.model || '';
+    updateModelLabel();
+    // Also load provider icon
+    const iconRes = await chrome.runtime.sendMessage({ type: 'PROVIDER_ICON', provider: selectedProvider });
+    if (iconRes?.iconUrl) {
+      modelTriggerIcon.innerHTML = `<img src="${iconRes.iconUrl}" alt="" width="14" height="14" style="display:block" />`;
+    }
+  } catch { /* ignore */ }
+}
+
+function updateModelLabel() {
+  const label = selectedModel || 'Server default';
+  modelLabel.textContent = label.length > 14 ? label.slice(0, 12) + '…' : label;
+}
+
+// ── Context tabs ──
+
+async function loadContextTabs() {
+  if (chatMode === 'search') { contextTabs.hidden = true; return; }
+  try {
+    const tabs = await chrome.tabs.query({});
+    const ntUrl = location.href;
+    allTabs = tabs
+      .filter((t) => t.id && t.url && !t.url.startsWith('chrome://') && t.url !== ntUrl)
+      .map((t) => ({ id: t.id, title: t.title || '', url: t.url, favIconUrl: t.favIconUrl || '' }));
+    // Keep selected tabs that still exist
+    const existing = new Set(allTabs.map((t) => t.id));
+    selectedContextTabs = new Set([...selectedContextTabs].filter((id) => existing.has(id)));
+    renderContextTabs();
+  } catch { /* ignore */ }
+}
+
+function renderContextTabs() {
+  contextList.innerHTML = '';
+  if (!allTabs.length) { contextTabs.hidden = true; return; }
+  contextTabs.hidden = false;
+  allTabs.forEach((tab) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'context-tab';
+    if (selectedContextTabs.has(tab.id)) btn.classList.add('is-active');
+    if (tab.favIconUrl) {
+      const img = document.createElement('img');
+      img.className = 'context-tab-fav';
+      img.src = tab.favIconUrl;
+      img.alt = '';
+      img.addEventListener('error', () => { img.style.display = 'none'; });
+      btn.appendChild(img);
+    }
+    const title = document.createElement('span');
+    title.className = 'context-tab-title';
+    title.textContent = tab.title || tab.url;
+    btn.appendChild(title);
+    btn.addEventListener('click', () => {
+      if (selectedContextTabs.has(tab.id)) {
+        selectedContextTabs.delete(tab.id);
+        btn.classList.remove('is-active');
+      } else {
+        selectedContextTabs.add(tab.id);
+        btn.classList.add('is-active');
+      }
+      contextCount.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
+    });
+    contextList.appendChild(btn);
+  });
+  contextCount.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
 }
 
 function escapeHtml(str) {
@@ -789,37 +953,26 @@ function onKeyDown(e) {
 async function openDedicatedChat(firstMessage) {
   const text = (firstMessage || '').trim();
   const base = chrome.runtime.getURL('chat/chat.html');
+  const imageUrls = attachedImages.map((img) => img.dataUrl);
+  clearAttachments();
 
-  // Dual handoff: session storage + ?q= (query is the reliable fallback)
+  const contextTabInfo = await buildContextTabInfo();
+
   try {
     if (chrome.storage?.session) {
-      if (text) {
-        await chrome.storage.session.set({
-          lanternPendingChat: { text, at: Date.now() },
-        });
-      } else {
-        await chrome.storage.session.remove('lanternPendingChat');
-      }
+      const payload = { text, at: Date.now() };
+      if (imageUrls.length) payload.images = imageUrls;
+      if (selectedModel) payload.model = selectedModel;
+      if (selectedProvider) payload.provider = selectedProvider;
+      if (contextTabInfo) payload.contextTabs = contextTabInfo;
+      await chrome.storage.session.set({ lanternPendingChat: payload });
     }
-  } catch {
-    /* session storage optional */
-  }
+  } catch { /* ignore */ }
 
-  // Nudge the service worker awake before the chat page messages it
-  try {
-    await chrome.runtime.sendMessage({ type: 'HEALTH' });
-  } catch {
-    /* SW will retry from chat page */
-  }
+  try { await chrome.runtime.sendMessage({ type: 'HEALTH' }); } catch { /* ignore */ }
 
   const url = text ? `${base}?q=${encodeURIComponent(text)}` : base;
-
-  try {
-    await chrome.tabs.create({ url, active: true });
-  } catch {
-    window.location.href = url;
-  }
-
+  try { await chrome.tabs.create({ url, active: true }); } catch { window.location.href = url; }
   if (text) query.value = '';
 }
 
@@ -827,38 +980,47 @@ async function openDedicatedChat(firstMessage) {
 async function openAgentChat(firstMessage) {
   const text = (firstMessage || '').trim();
   const base = chrome.runtime.getURL('chat/chat.html');
+  const imageUrls = attachedImages.map((img) => img.dataUrl);
+  clearAttachments();
 
-  // Store the pending prompt + agent mode flag
+  const contextTabInfo = await buildContextTabInfo();
+
   try {
     if (chrome.storage?.session) {
-      if (text) {
-        await chrome.storage.session.set({
-          lanternPendingChat: { text, mode: 'agent', at: Date.now() },
-        });
-      } else {
-        await chrome.storage.session.set({
-          lanternPendingChat: { text: '', mode: 'agent', at: Date.now() },
-        });
-      }
+      const payload = { text, mode: 'agent', at: Date.now() };
+      if (imageUrls.length) payload.images = imageUrls;
+      if (selectedModel) payload.model = selectedModel;
+      if (selectedProvider) payload.provider = selectedProvider;
+      if (contextTabInfo) payload.contextTabs = contextTabInfo;
+      await chrome.storage.session.set({ lanternPendingChat: payload });
     }
   } catch { /* ignore */ }
 
-  try {
-    await chrome.runtime.sendMessage({ type: 'HEALTH' });
-  } catch { /* ignore */ }
+  try { await chrome.runtime.sendMessage({ type: 'HEALTH' }); } catch { /* ignore */ }
 
   const params = new URLSearchParams();
   if (text) params.set('q', text);
   params.set('mode', 'agent');
   const url = `${base}?${params.toString()}`;
-
-  try {
-    await chrome.tabs.create({ url, active: true });
-  } catch {
-    window.location.href = url;
-  }
-
+  try { await chrome.tabs.create({ url, active: true }); } catch { window.location.href = url; }
   if (text) query.value = '';
+}
+
+/** Scrape selected context tabs and return their page info. */
+async function buildContextTabInfo() {
+  if (!selectedContextTabs.size) return null;
+  const tabIds = [...selectedContextTabs];
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'SCRAPE_TABS', tabIds });
+    if (res?.ok) return { tabs: res.tabs };
+  } catch { /* ignore */ }
+  // Fallback: just pass URLs/titles
+  return {
+    tabs: tabIds.map((id) => {
+      const t = allTabs.find((tb) => tb.id === id);
+      return { title: t?.title || '', url: t?.url || '' };
+    }),
+  };
 }
 
 /** Open an existing conversation (no new thread). */
