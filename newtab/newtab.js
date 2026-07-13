@@ -33,7 +33,7 @@ const MODES = {
   chat: {
     label: 'Chat',
     icon: 'chat',
-    placeholder: 'Ask Lantern…',
+    placeholder: 'Ask anything…',
     hintVerb: 'ask',
     color: '#8b9ed4',
     btnBg: '#5b6fb0',
