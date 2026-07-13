@@ -197,25 +197,50 @@ body {
   gap: 10px;
 }
 
-/* Search mode: hide composer bar, shrink textarea */
+/* Search mode: compact row with go button */
+.search-shell[data-mode='search'] {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 6px 6px 6px 16px;
+}
+.search-shell[data-mode='search'] .composer-bar {
+  display: none;
+}
+.search-shell[data-mode='search'] .go-btn {
+  flex-shrink: 0;
+}
+.search-shell[data-mode='search'] #query {
+  min-height: 0;
+  max-height: none;
+  height: auto;
+  padding: 10px 0;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1.3;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: none;
+}
+
+/* Chat/Agent mode: hide standalone go button */
+.search-shell:not([data-mode='search']) .go-btn {
+  display: none;
+}
+
+/* Composer bar transitions */
 .search-shell .composer-bar {
   transition: opacity 0.25s ease;
 }
 .search-shell[data-mode='search'] .composer-bar {
   opacity: 0;
   pointer-events: none;
-}
-.search-shell[data-mode='search'] #query {
-  min-height: 24px;
-  max-height: 24px;
-  padding: 0;
-  line-height: 1.3;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.search-shell .composer-bar .go-btn {
-  margin-left: auto;
 }
 
 /* Model picker (matches chat style) */
