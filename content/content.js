@@ -461,8 +461,45 @@
   function agentScroll(delta) {
     var d = Number(delta) || 0;
     if (!d) return { ok: false, error: 'Missing delta' };
-    window.scrollBy({ top: d, left: 0, behavior: 'smooth' });
+    // Try the main scrollable element first (many SPAs scroll a div, not window)
+    var el = findMainScroller();
+    if (el) {
+      el.scrollBy({ top: d, left: 0, behavior: 'smooth' });
+    } else {
+      window.scrollBy({ top: d, left: 0, behavior: 'smooth' });
+    }
     return { ok: true, url: location.href, scrolled: d };
+  }
+
+  /** Find the primary scrollable element on the page. */
+  function findMainScroller() {
+    // Common selectors for main content areas that scroll independently
+    var candidates = document.querySelectorAll(
+      '[role="main"], main, .main, #main, [role="region"], .content, #content, .app, #app, .page, #page'
+    );
+    var best = null;
+    var bestArea = 0;
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (el.scrollHeight > el.clientHeight + 10) {
+        var area = el.clientWidth * el.clientHeight;
+        if (area > bestArea) { best = el; bestArea = area; }
+      }
+    }
+    // Fallback: any scrollable element taking up most of the viewport
+    if (!best) {
+      var all = document.querySelectorAll('div, section, article');
+      for (var j = 0; j < all.length; j++) {
+        var e = all[j];
+        if (e.scrollHeight > e.clientHeight + 10) {
+          var a = e.clientWidth * e.clientHeight;
+          if (a > bestArea && a > window.innerWidth * window.innerHeight * 0.5) {
+            best = e; bestArea = a;
+          }
+        }
+      }
+    }
+    return best;
   }
 
   function agentFind(query) {
@@ -585,17 +622,24 @@
     agentGlowStyle = document.createElement('style');
     agentGlowStyle.id = 'lantern-agent-glow';
     agentGlowStyle.textContent = `
-      @property --lantern-angle {
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-      }
-      @keyframes lantern-glow-wave {
-        to { --lantern-angle: 360deg; }
-      }
       @keyframes lantern-glow-pulse {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
+        0%, 100% {
+          box-shadow:
+            inset 0 0 50px 24px rgba(255, 140, 0, 0.06),
+            inset 0 0 20px 8px rgba(255, 140, 0, 0.1);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 70px 32px rgba(255, 140, 0, 0.16),
+            inset 0 0 30px 10px rgba(255, 140, 0, 0.28);
+        }
+      }
+      @keyframes lantern-glow-appear {
+        from {
+          box-shadow:
+            inset 0 0 0 0 rgba(255, 140, 0, 0),
+            inset 0 0 0 0 rgba(255, 140, 0, 0);
+        }
       }
       html::after {
         content: '';
@@ -604,23 +648,9 @@
         pointer-events: none;
         z-index: 2147483647;
         border-radius: 12px;
-        padding: 3px;
-        background: conic-gradient(
-          from var(--lantern-angle),
-          transparent,
-          rgba(255, 140, 0, 0.8) 10%,
-          rgba(255, 140, 0, 1) 15%,
-          rgba(255, 140, 0, 0.4) 20%,
-          transparent 30%
-        );
-        -webkit-mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
         animation:
-          lantern-glow-wave 3s linear infinite,
-          lantern-glow-pulse 2s ease-in-out infinite;
+          lantern-glow-appear 0.6s ease-out,
+          lantern-glow-pulse 2.5s ease-in-out 0.6s infinite;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);

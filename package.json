@@ -1,6 +1,6 @@
 {
   "name": "lantern",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "**AI sidebar for every tab** — a Chrome extension that puts a page-aware AI assistant next to every page. Works with local models via [llama.cpp](https://github.com/ggml-org/llama.cpp) or any OpenAI/Anthropic-compatible cloud provider.",
   "main": "background.js",
   "scripts": {

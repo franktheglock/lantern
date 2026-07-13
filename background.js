@@ -14,7 +14,7 @@ var DEFAULTS = {
   model: 'Gemma-Test',
   temperature: 0.7,
   maxTokens: -1,
-  maxPageChars: -1,
+  maxPageChars: 12000,
   systemPrompt:
     'You are Lantern, a helpful browsing assistant running locally. Be concise and practical. When page context is provided, use it accurately — quote sparingly and do not invent page content. You have tools to search the web and read URLs; use them when you need current information or page contents rather than guessing.',
   includePageContext: true,
@@ -664,6 +664,9 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
     .slice(0, 800);
   if (!userSlice && !asstSlice) return Promise.resolve(null);
 
+  // Skip extraction for very short replies — no durable facts in one-liners
+  if (asstSlice.length < 200) return Promise.resolve(null);
+
   // Fetch existing active memories so the model can update rather than duplicate
   return getActiveMemories()
     .then(function (existing) {
@@ -689,14 +692,16 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
       }
 
       var systemContent =
-        'You extract and UPDATE personal facts worth remembering about the user for future chats.\n' +
+        'You extract durable personal facts worth remembering about the user for future chats.\n' +
         'Rules:\n' +
-        '- Return a JSON array of 0–3 objects: [{"title":"short label","text":"one fact"}]\n' +
+        '- Return a JSON array of 0–1 objects: [{"title":"short label","text":"one fact"}]\n' +
         '- To UPDATE an existing memory, include its id: [{"id":"...","title":"...","text":"..."}]\n' +
         '- To KEEP an existing memory unchanged, OMIT it from the array\n' +
-        '- Include preferences, projects, standing decisions, names\n' +
-        '- Exclude secrets, passwords, ephemeral page content, one-off trivia\n' +
-        '- If nothing durable or nothing changed, return []\n' +
+        '- ONLY remember facts the user EXPLICITLY stated (preferences, projects, names, standing decisions)\n' +
+        '- DO NOT infer or guess — the fact must be directly stated by the user\n' +
+        '- DO NOT remember: opinions about articles, page summaries, tool results, one-off questions, code snippets, trivia\n' +
+        '- If the user simply asked a question or requested a task, return []\n' +
+        '- Return [] unless you are confident the user would want this remembered across sessions\n' +
         'No markdown, no explanation.' +
         existingBlock;
 
@@ -730,10 +735,10 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
       var autoAccept = !!settings.memoryAutoAccept;
       var chain = Promise.resolve([]);
       var i;
-      for (i = 0; i < Math.min(3, json.length); i++) {
+      for (i = 0; i < Math.min(1, json.length); i++) {
         (function (item) {
           var text = String((item && (item.text || item.fact || item.memory)) || '').trim();
-          if (!text || text.length < 4) return;
+          if (!text || text.length < 20) return;
           var title = String((item && item.title) || '').trim().slice(0, 80);
           var id = String((item && item.id) || '').trim() || null;
 
@@ -777,7 +782,7 @@ function maybeAutoExtractMemories(settings, conversationId, userText, assistantT
                 bestMatch = existing[ej];
               }
             }
-            if (bestMatch && bestScore >= 0.4) {
+            if (bestMatch && bestScore >= 0.6) {
               id = bestMatch.id;
             }
           }
@@ -2255,7 +2260,20 @@ function ensureAgentSession(requestId, originTabId, controllerTabId, sidebarMode
 
 function agentGlowTab(tabId, on) {
   try {
-    chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on }).catch(function () {});
+    chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on }).catch(function () {
+      // Content script may not be loaded yet — inject it and retry
+      return chrome.scripting
+        .executeScript({
+          target: { tabId: tabId },
+          files: ['content/content.js'],
+        })
+        .then(function () {
+          return chrome.tabs.sendMessage(tabId, { type: 'AGENT_GLOW', on: !!on });
+        })
+        .catch(function () {
+          /* still failed, give up */
+        });
+    });
   } catch (e) {
     /* ignore */
   }

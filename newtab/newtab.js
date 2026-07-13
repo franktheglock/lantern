@@ -12,8 +12,48 @@ const btnImportBrowser = document.getElementById('btn-import-browser');
 const btnTheme = document.getElementById('btn-theme');
 const recentChats = document.getElementById('recent-chats');
 const recentList = document.getElementById('recent-list');
+const goBtn = document.getElementById('go-btn');
+const searchShell = document.getElementById('search-shell');
+const modeRow = document.getElementById('mode-row');
+const modeIndicator = document.querySelector('.mode-indicator');
+const modeTabs = document.querySelectorAll('.mode-tab');
+const suggestDropdown = document.getElementById('suggest-dropdown');
+
+/** Mode definitions: id → { label, icon, placeholder, hint, color } */
+const MODES = {
+  search: {
+    label: 'Search',
+    icon: 'search',
+    placeholder: 'Search the web…',
+    hintVerb: 'search',
+    color: 'var(--accent-text)',
+    btnBg: 'var(--accent-solid)',
+    btnFg: 'var(--on-accent)',
+  },
+  chat: {
+    label: 'Chat',
+    icon: 'chat',
+    placeholder: 'Ask anything…',
+    hintVerb: 'ask',
+    color: '#8b9ed4',
+    btnBg: '#5b6fb0',
+    btnFg: '#f0f2fa',
+  },
+  agent: {
+    label: 'Agent',
+    icon: 'agent',
+    placeholder: 'Tell the agent what to do…',
+    hintVerb: 'run',
+    color: '#daa45a',
+    btnBg: '#c4843e',
+    btnFg: '#fdf6ed',
+  },
+};
+const MODE_ORDER = ['search', 'chat', 'agent'];
 
 let settings = null;
+let chatMode = 'search';
+let agentModeAllowed = false;
 /** Lantern-only pins (not browser bookmarks) */
 let allPins = [];
 let ghostPinEl = null;
@@ -25,6 +65,11 @@ async function init() {
   initTheme();
   const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
   settings = res?.settings || {};
+  agentModeAllowed = !!settings.agentModeAllowed;
+
+  // Restore saved mode from storage (or localStorage fallback)
+  chatMode = await loadSavedMode();
+
   if (settings.newtabEnabled === false) {
     // Minimal mode: show search + pins, hide Lantern branding
     document.title = 'New Tab';
@@ -32,8 +77,11 @@ async function init() {
     query.placeholder = 'Search the web…';
     updateEndpointLabel();
     await loadPins();
+    applyMode();
     form.addEventListener('submit', onSubmit);
     query.addEventListener('keydown', onKeyDown);
+    query.addEventListener('input', onSuggestInput);
+    query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
     claimSearchFocus();
     return;
   }
@@ -44,9 +92,30 @@ async function init() {
   // Browser omnibox steals focus on NTP — reclaim it for our search box
   claimSearchFocus();
 
+  applyMode();
   form.addEventListener('submit', onSubmit);
   query.addEventListener('keydown', onKeyDown);
+  query.addEventListener('input', onSuggestInput);
+  query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
   btnTheme.addEventListener('click', toggleTheme);
+
+  // Mode tab clicks
+  for (const tab of modeTabs) {
+    tab.addEventListener('click', () => {
+      const m = tab.dataset.mode;
+      if (m === 'agent' && !agentModeAllowed) {
+        chrome.runtime.openOptionsPage();
+        return;
+      }
+      setMode(m);
+      saveMode(m);
+    });
+  }
+
+  // Keep indicator positioned on resize
+  window.addEventListener('resize', () => {
+    if (modeIndicator) positionIndicator();
+  });
 
   btnCancelPin.addEventListener('click', closePinPopover);
   pinAddForm.addEventListener('submit', onAddPin);
@@ -67,6 +136,185 @@ async function init() {
   });
 
 }
+
+// ── Mode management ──────────────────────────────────────────────────
+
+async function loadSavedMode() {
+  try {
+    const stored = await chrome.storage.local.get('newtabMode');
+    if (stored.newtabMode && MODE_ORDER.includes(stored.newtabMode)) {
+      return stored.newtabMode;
+    }
+  } catch { /* ignore */ }
+  try {
+    const ls = localStorage.getItem('lantern-newtab-mode');
+    if (ls && MODE_ORDER.includes(ls)) return ls;
+  } catch { /* ignore */ }
+  return 'search';
+}
+
+async function saveMode(mode) {
+  try {
+    await chrome.storage.local.set({ newtabMode: mode });
+  } catch { /* ignore */ }
+  try {
+    localStorage.setItem('lantern-newtab-mode', mode);
+  } catch { /* ignore */ }
+}
+
+/** Return the list of mode ids currently enabled (agent only if allowed). */
+function getEnabledModes() {
+  return MODE_ORDER.filter((m) => m !== 'agent' || agentModeAllowed);
+}
+
+/** Cycle to the next enabled mode. */
+function cycleMode() {
+  const enabled = getEnabledModes();
+  const idx = enabled.indexOf(chatMode);
+  const next = enabled[(idx + 1) % enabled.length];
+  setMode(next);
+  saveMode(next);
+  // Brief pulse animation on the go button
+  goBtn.classList.remove('mode-just-switched');
+  void goBtn.offsetWidth; // reflow
+  goBtn.classList.add('mode-just-switched');
+}
+
+/** Apply mode to all UI elements. */
+function applyMode() {
+  setMode(chatMode);
+}
+
+function setMode(mode) {
+  if (!MODE_ORDER.includes(mode)) return;
+  if (mode === 'agent' && !agentModeAllowed) mode = 'search';
+  chatMode = mode;
+  const def = MODES[mode];
+  const nextModes = getEnabledModes();
+  const idx = nextModes.indexOf(mode);
+  const nextMode = nextModes[(idx + 1) % nextModes.length];
+
+  // Go button
+  goBtn.setAttribute('data-mode', mode);
+  goBtn.setAttribute('aria-label', def.label);
+  goBtn.title = `Enter · ${def.hintVerb}`;
+
+  // Search shell focus ring
+  searchShell.setAttribute('data-mode', mode);
+
+  // Mode row
+  modeRow.setAttribute('data-mode', mode);
+  for (const tab of modeTabs) {
+    const selected = tab.dataset.mode === mode;
+    tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+    tab.hidden = tab.dataset.mode === 'agent' && !agentModeAllowed;
+  }
+
+  // Position the sliding indicator
+  requestAnimationFrame(() => positionIndicator());
+
+  // Placeholder
+  if (!document.body.classList.contains('minimal')) {
+    query.placeholder = def.placeholder;
+  }
+}
+
+/** Snap the indicator pill to the active mode tab. */
+function positionIndicator() {
+  const active = modeRow.querySelector('.mode-tab[aria-selected="true"]');
+  if (!active || !modeIndicator) return;
+  const rowRect = modeRow.getBoundingClientRect();
+  const tabRect = active.getBoundingClientRect();
+  const left = tabRect.left - rowRect.left;
+  const width = tabRect.width;
+  modeIndicator.style.left = `${left}px`;
+  modeIndicator.style.width = `${width}px`;
+}
+
+// ── Autocomplete (search mode only) ──────────────────────────────────
+
+let suggestTimer = 0;
+let suggestIndex = -1;
+let suggestItems = [];
+
+/** Debounced input → fetch suggestions */
+function onSuggestInput() {
+  clearTimeout(suggestTimer);
+  if (chatMode !== 'search') { closeSuggest(); return; }
+  const q = query.value.trim();
+  if (!q || q.length < 2) { closeSuggest(); return; }
+  suggestTimer = setTimeout(() => fetchSuggestions(q), 150);
+}
+
+async function fetchSuggestions(q) {
+  try {
+    const url = `https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const list = (json && json[1]) || [];
+    suggestItems = list.slice(0, 8);
+    if (!suggestItems.length) { closeSuggest(); return; }
+    renderSuggestions();
+    suggestDropdown.hidden = false;
+    suggestIndex = -1;
+  } catch {
+    closeSuggest();
+  }
+}
+
+function renderSuggestions() {
+  suggestDropdown.innerHTML = '';
+  suggestItems.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'suggest-item';
+    div.dataset.index = i;
+    div.innerHTML = `
+      <span class="suggest-icon" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3-3" />
+        </svg>
+      </span>
+      <span class="suggest-text">${escapeHtml(text)}</span>
+    `;
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectSuggestion(i);
+    });
+    suggestDropdown.appendChild(div);
+  });
+}
+
+function selectSuggestion(index) {
+  const text = suggestItems[index];
+  if (!text) return;
+  query.value = text;
+  closeSuggest();
+  doWebSearch(text);
+}
+
+function highlightSuggestion(index) {
+  const items = suggestDropdown.querySelectorAll('.suggest-item');
+  items.forEach((el, i) => el.classList.toggle('is-active', i === index));
+  if (index >= 0) {
+    const active = items[index];
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function closeSuggest() {
+  suggestDropdown.hidden = true;
+  suggestDropdown.innerHTML = '';
+  suggestItems = [];
+  suggestIndex = -1;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ── Pin popover ──────────────────────────────────────────────────────
 
 function openPinPopover(anchor) {
   pinUrl.value = '';
@@ -498,11 +746,42 @@ function toggleTheme() {
 }
 
 function onKeyDown(e) {
-  // Tab → open dedicated chat (carry the typed prompt)
+  // Dropdown navigation
+  if (!suggestDropdown.hidden) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestIndex = Math.min(suggestIndex + 1, suggestItems.length - 1);
+      highlightSuggestion(suggestIndex);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestIndex = Math.max(suggestIndex - 1, -1);
+      highlightSuggestion(suggestIndex);
+      if (suggestIndex < 0) query.focus();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSuggest();
+      return;
+    }
+    if (e.key === 'Enter' && suggestIndex >= 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectSuggestion(suggestIndex);
+      return;
+    }
+  }
+
+  // Tab → cycle mode (Search → Chat → Agent → Search…)
   if (e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     e.stopPropagation();
-    openDedicatedChat(query.value.trim());
+    closeSuggest();
+    cycleMode();
+    saveMode(chatMode);
+    return;
   }
 }
 
@@ -534,6 +813,44 @@ async function openDedicatedChat(firstMessage) {
   }
 
   const url = text ? `${base}?q=${encodeURIComponent(text)}` : base;
+
+  try {
+    await chrome.tabs.create({ url, active: true });
+  } catch {
+    window.location.href = url;
+  }
+
+  if (text) query.value = '';
+}
+
+/** Open the dedicated chat page with agent mode pre-enabled. */
+async function openAgentChat(firstMessage) {
+  const text = (firstMessage || '').trim();
+  const base = chrome.runtime.getURL('chat/chat.html');
+
+  // Store the pending prompt + agent mode flag
+  try {
+    if (chrome.storage?.session) {
+      if (text) {
+        await chrome.storage.session.set({
+          lanternPendingChat: { text, mode: 'agent', at: Date.now() },
+        });
+      } else {
+        await chrome.storage.session.set({
+          lanternPendingChat: { text: '', mode: 'agent', at: Date.now() },
+        });
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
+    await chrome.runtime.sendMessage({ type: 'HEALTH' });
+  } catch { /* ignore */ }
+
+  const params = new URLSearchParams();
+  if (text) params.set('q', text);
+  params.set('mode', 'agent');
+  const url = `${base}?${params.toString()}`;
 
   try {
     await chrome.tabs.create({ url, active: true });
@@ -642,14 +959,23 @@ function onSubmit(e) {
   const text = query.value.trim();
   if (!text) return;
 
-  // Bare URL → open it
+  // Bare URL → open it (any mode)
   if (looksLikeUrl(text)) {
     openUrl(text);
     return;
   }
 
-  // Enter → web search (default)
-  doWebSearch(text);
+  // Dispatch based on current mode
+  switch (chatMode) {
+    case 'chat':
+      openDedicatedChat(text);
+      break;
+    case 'agent':
+      openAgentChat(text);
+      break;
+    default:
+      doWebSearch(text);
+  }
 }
 
 function doWebSearch(text) {
