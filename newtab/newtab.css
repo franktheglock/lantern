@@ -241,6 +241,17 @@ body {
   white-space: nowrap;
 }
 
+.mp-trigger-icon-nt {
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* White icons in dark mode */
+[data-theme='dark'] .mp-trigger-icon-nt,
+[data-theme='dark'] .mp-item img {
+  filter: brightness(0) invert(1);
+}
+
 .mp-trigger-nt:hover {
   border-color: var(--text-faint);
 }

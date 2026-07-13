@@ -442,6 +442,14 @@ async function loadModelPicker() {
 function updateModelTriggerLabel() {
   const label = selectedModel || 'Server default';
   mpValueNt.textContent = label.length > 16 ? label.slice(0, 14) + '…' : label;
+  // Set provider icon in trigger
+  const iconEl = document.getElementById('mp-trigger-icon-nt');
+  if (iconEl) {
+    const prov = modelProvidersNt.find((p) => p.id === selectedProvider);
+    const iconFile = prov?.icon ? ((prov.icon.includes('.') ? prov.icon : prov.icon + '.svg')) : 'llamacpp.svg';
+    iconEl.src = chrome.runtime.getURL('assets/providers/' + iconFile);
+    iconEl.style.display = '';
+  }
 }
 
 function openModelPicker() {
@@ -484,6 +492,7 @@ function renderProviderList() {
 
 function selectProvider(prov) {
   selectedProvider = prov.id;
+  updateModelTriggerLabel();
   if (!prov.models?.length) {
     selectedModel = '';
     updateModelTriggerLabel();
