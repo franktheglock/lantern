@@ -17,6 +17,7 @@ const searchShell = document.getElementById('search-shell');
 const modeRow = document.getElementById('mode-row');
 const modeIndicator = document.querySelector('.mode-indicator');
 const modeTabs = document.querySelectorAll('.mode-tab');
+const suggestDropdown = document.getElementById('suggest-dropdown');
 
 /** Mode definitions: id → { label, icon, placeholder, hint, color } */
 const MODES = {
@@ -79,6 +80,8 @@ async function init() {
     applyMode();
     form.addEventListener('submit', onSubmit);
     query.addEventListener('keydown', onKeyDown);
+    query.addEventListener('input', onSuggestInput);
+    query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
     claimSearchFocus();
     return;
   }
@@ -92,6 +95,8 @@ async function init() {
   applyMode();
   form.addEventListener('submit', onSubmit);
   query.addEventListener('keydown', onKeyDown);
+  query.addEventListener('input', onSuggestInput);
+  query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
   btnTheme.addEventListener('click', toggleTheme);
 
   // Mode tab clicks
@@ -224,6 +229,89 @@ function positionIndicator() {
   const width = tabRect.width;
   modeIndicator.style.left = `${left}px`;
   modeIndicator.style.width = `${width}px`;
+}
+
+// ── Autocomplete (search mode only) ──────────────────────────────────
+
+let suggestTimer = 0;
+let suggestIndex = -1;
+let suggestItems = [];
+
+/** Debounced input → fetch suggestions */
+function onSuggestInput() {
+  clearTimeout(suggestTimer);
+  if (chatMode !== 'search') { closeSuggest(); return; }
+  const q = query.value.trim();
+  if (!q || q.length < 2) { closeSuggest(); return; }
+  suggestTimer = setTimeout(() => fetchSuggestions(q), 150);
+}
+
+async function fetchSuggestions(q) {
+  try {
+    const url = `https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const list = (json && json[1]) || [];
+    suggestItems = list.slice(0, 8);
+    if (!suggestItems.length) { closeSuggest(); return; }
+    renderSuggestions();
+    suggestDropdown.hidden = false;
+    suggestIndex = -1;
+  } catch {
+    closeSuggest();
+  }
+}
+
+function renderSuggestions() {
+  suggestDropdown.innerHTML = '';
+  suggestItems.forEach((text, i) => {
+    const div = document.createElement('div');
+    div.className = 'suggest-item';
+    div.dataset.index = i;
+    div.innerHTML = `
+      <span class="suggest-icon" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3-3" />
+        </svg>
+      </span>
+      <span class="suggest-text">${escapeHtml(text)}</span>
+    `;
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectSuggestion(i);
+    });
+    suggestDropdown.appendChild(div);
+  });
+}
+
+function selectSuggestion(index) {
+  const text = suggestItems[index];
+  if (!text) return;
+  query.value = text;
+  closeSuggest();
+  doWebSearch(text);
+}
+
+function highlightSuggestion(index) {
+  const items = suggestDropdown.querySelectorAll('.suggest-item');
+  items.forEach((el, i) => el.classList.toggle('is-active', i === index));
+  if (index >= 0) {
+    const active = items[index];
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function closeSuggest() {
+  suggestDropdown.hidden = true;
+  suggestDropdown.innerHTML = '';
+  suggestItems = [];
+  suggestIndex = -1;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 // ── Pin popover ──────────────────────────────────────────────────────
@@ -658,10 +746,39 @@ function toggleTheme() {
 }
 
 function onKeyDown(e) {
+  // Dropdown navigation
+  if (!suggestDropdown.hidden) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestIndex = Math.min(suggestIndex + 1, suggestItems.length - 1);
+      highlightSuggestion(suggestIndex);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestIndex = Math.max(suggestIndex - 1, -1);
+      highlightSuggestion(suggestIndex);
+      if (suggestIndex < 0) query.focus();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeSuggest();
+      return;
+    }
+    if (e.key === 'Enter' && suggestIndex >= 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      selectSuggestion(suggestIndex);
+      return;
+    }
+  }
+
   // Tab → cycle mode (Search → Chat → Agent → Search…)
   if (e.key === 'Tab' && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
     e.preventDefault();
     e.stopPropagation();
+    closeSuggest();
     cycleMode();
     saveMode(chatMode);
     return;

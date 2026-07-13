@@ -150,6 +150,7 @@ body {
   border-radius: 14px;
   padding: 6px 6px 6px 16px;
   transition: border-color 0.15s, box-shadow 0.15s;
+  position: relative;
 }
 
 .search-shell:focus-within {
@@ -241,6 +242,57 @@ body {
 .search-shell[data-mode='agent']:focus-within {
   border-color: #d4a55e;
   box-shadow: 0 0 0 3px rgba(196, 132, 62, 0.2);
+}
+
+/* ── Autocomplete suggestions ── */
+
+.suggest-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+
+.suggest-dropdown[hidden] {
+  display: none;
+}
+
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text);
+  transition: background 0.1s;
+}
+
+.suggest-item:hover,
+.suggest-item.is-active {
+  background: var(--bg-soft);
+}
+
+.suggest-item .suggest-icon {
+  flex-shrink: 0;
+  color: var(--text-faint);
+  display: grid;
+  place-items: center;
+}
+
+.suggest-item .suggest-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Mode row (pill tabs with sliding indicator) ── */
