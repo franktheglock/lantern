@@ -765,13 +765,25 @@ export function createAssistantMessage(container) {
   return createReplyThread(container);
 }
 
-export function appendUserMessage(container, text) {
+export function appendUserMessage(container, text, { images = [] } = {}) {
   // Row matches the composer column width; bubble sits on the row's right edge
   const row = document.createElement('div');
   row.className = 'msg msg-user-row';
   const bubble = document.createElement('div');
   bubble.className = 'msg-user';
   bubble.textContent = text;
+  if (images && images.length) {
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'msg-user-imgs';
+    images.forEach((url) => {
+      const img = document.createElement('img');
+      img.src = url;
+      img.className = 'msg-user-img';
+      img.alt = 'Attached image';
+      imgWrap.appendChild(img);
+    });
+    bubble.appendChild(imgWrap);
+  }
   row.appendChild(bubble);
   container.appendChild(row);
   container.scrollTop = container.scrollHeight;

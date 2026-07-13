@@ -45,6 +45,9 @@ const els = {
   // Agent
   agentWorkspace: document.getElementById('agent-workspace'),
   agentFeed: document.getElementById('agent-feed'),
+  // Attach
+  btnAttach: document.getElementById('btn-attach'),
+  fileInput: document.getElementById('file-input'),
 };
 
 let activeTabId = null;
@@ -57,6 +60,8 @@ let assistant = null;
 // ---- Mode ----
 let chatMode = 'chat'; // 'chat' | 'agent'
 let agentModeAllowed = false;
+/** @type {{ dataUrl: string, name: string }[]} */
+let attachedImages = [];
 
 // ---- Model picker ----
 let selectedProvider = 'local';
@@ -159,6 +164,10 @@ function bindEvents() {
   els.clear.addEventListener('click', clearChat);
   els.bookmark.addEventListener('click', toggleBookmark);
   els.close.addEventListener('click', () => window.close());
+
+  // Attach button
+  els.btnAttach?.addEventListener('click', () => els.fileInput?.click());
+  els.fileInput?.addEventListener('change', onFilesSelected);
 
   // Mode toggle
   els.modeChatBtn?.addEventListener('click', () => setChatMode('chat'));
@@ -583,6 +592,56 @@ async function checkHealth() {
   }
 }
 
+// ---- Attachments ----
+
+function onFilesSelected() {
+  const files = Array.from(els.fileInput?.files || []);
+  els.fileInput.value = '';
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = () => {
+      attachedImages.push({ dataUrl: reader.result, name: file.name });
+      renderImagePreviews();
+      els.btnAttach?.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function renderImagePreviews() {
+  let wrap = els.input.parentElement.querySelector('.image-previews');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'image-previews';
+    els.input.parentElement.insertBefore(wrap, els.input.parentElement.querySelector('.composer-bar'));
+  }
+  wrap.innerHTML = '';
+  attachedImages.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.className = 'image-preview';
+    div.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" />`;
+    const rm = document.createElement('button');
+    rm.className = 'image-preview-remove';
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      attachedImages.splice(i, 1);
+      renderImagePreviews();
+      if (!attachedImages.length) els.btnAttach?.classList.remove('has-image');
+    });
+    div.appendChild(rm);
+    wrap.appendChild(div);
+  });
+  if (!attachedImages.length && wrap) wrap.remove();
+}
+
+function clearAttachments() {
+  attachedImages = [];
+  const wrap = els.input.parentElement.querySelector('.image-previews');
+  if (wrap) wrap.remove();
+  els.btnAttach?.classList.remove('has-image');
+}
+
 // ---- Send / Chat ----
 function onSendClick() {
   if (streaming) abortChat();
@@ -593,7 +652,10 @@ async function sendMessage(text, { selectionOverride = '' } = {}) {
   const userText = (text || '').trim();
   if (!userText || streaming) return;
 
-  appendUserMessage(els.messages, userText);
+  const imageUrls = attachedImages.map((img) => img.dataUrl);
+  clearAttachments();
+
+  appendUserMessage(els.messages, userText, { images: imageUrls });
   els.input.value = '';
   autoResize();
   setStreaming(true);
@@ -617,6 +679,7 @@ async function sendMessage(text, { selectionOverride = '' } = {}) {
     enableTools: true,
     agentMode: isAgent,
     sidebarMode: true,
+    images: imageUrls.length ? imageUrls : undefined,
   });
 
   if (res && res.ok === false) {

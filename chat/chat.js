@@ -38,6 +38,8 @@ const agentWorkspace = document.getElementById('agent-workspace');
 const agentFeed = document.getElementById('agent-feed');
 const mainStage = document.querySelector('.main-stage');
 const composer = document.getElementById('composer');
+const btnAttach = document.getElementById('btn-attach');
+const fileInput = document.getElementById('file-input');
 /** Tab id of this chat page — kept focused while agent works in background tabs */
 let controllerTabId = null;
 
@@ -59,6 +61,8 @@ let mpOpen = false;
 let chatMode = 'chat';
 let agentModeAllowed = false;
 let memoriesEnabled = false;
+/** @type {{ dataUrl: string, name: string }[]} */
+let attachedImages = [];
 
 init().catch((err) => {
   console.error('[Lantern chat] init failed', err);
@@ -141,6 +145,8 @@ async function init() {
   btnSidebar.addEventListener('click', () => {
     app.classList.toggle('sidebar-collapsed');
   });
+  btnAttach?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', onFilesSelected);
   input.addEventListener('keydown', onKeyDown);
   input.addEventListener('input', autoResize);
   bindModelPicker();
@@ -494,6 +500,56 @@ async function newChat(focusInput) {
   }
 }
 
+// ── Attachments ──
+
+function onFilesSelected() {
+  const files = Array.from(fileInput?.files || []);
+  if (fileInput) fileInput.value = '';
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = () => {
+      attachedImages.push({ dataUrl: reader.result, name: file.name });
+      renderImagePreviews();
+      btnAttach?.classList.add('has-image');
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function renderImagePreviews() {
+  let wrap = input.parentElement.querySelector('.image-previews');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'image-previews';
+    input.parentElement.insertBefore(wrap, input.parentElement.querySelector('.composer-bar'));
+  }
+  wrap.innerHTML = '';
+  attachedImages.forEach((img, i) => {
+    const div = document.createElement('div');
+    div.className = 'image-preview';
+    div.innerHTML = `<img src="${img.dataUrl}" alt="${img.name}" />`;
+    const rm = document.createElement('button');
+    rm.className = 'image-preview-remove';
+    rm.textContent = '×';
+    rm.addEventListener('click', () => {
+      attachedImages.splice(i, 1);
+      renderImagePreviews();
+      if (!attachedImages.length) btnAttach?.classList.remove('has-image');
+    });
+    div.appendChild(rm);
+    wrap.appendChild(div);
+  });
+  if (!attachedImages.length && wrap) wrap.remove();
+}
+
+function clearAttachments() {
+  attachedImages = [];
+  const wrap = input.parentElement.querySelector('.image-previews');
+  if (wrap) wrap.remove();
+  btnAttach?.classList.remove('has-image');
+}
+
 function onSendClick() {
   if (streaming) {
     if (currentRequestId) {
@@ -519,6 +575,9 @@ async function sendMessage(text) {
   const userText = (text || '').trim();
   if (!userText || streaming) return false;
 
+  const imageUrls = attachedImages.map((img) => img.dataUrl);
+  clearAttachments();
+
   try {
     await ensureConversation();
   } catch (err) {
@@ -535,7 +594,7 @@ async function sendMessage(text) {
   }
 
   hideEmpty();
-  appendUserMessage(messages, userText);
+  appendUserMessage(messages, userText, { images: imageUrls });
   input.value = '';
   autoResize();
   setStreaming(true);
@@ -563,6 +622,7 @@ async function sendMessage(text) {
       enableTools: true,
       agentMode: chatMode === 'agent',
       controllerTabId: controllerTabId,
+      images: imageUrls.length ? imageUrls : undefined,
     });
 
     if (!res || res.ok === false) {

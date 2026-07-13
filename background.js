@@ -1647,6 +1647,35 @@ function toolCallMapToArray(map) {
  * Anthropic Messages API (non-OpenAI shape).
  * Tools are not mapped yet — callers should disable tools for Anthropic.
  */
+/** Convert OpenAI multimodal content to Anthropic format. */
+function convertToAnthropicContent(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return String(content || '');
+  var parts = [];
+  for (var i = 0; i < content.length; i++) {
+    var block = content[i];
+    if (!block) continue;
+    if (block.type === 'text') {
+      parts.push({ type: 'text', text: block.text || '' });
+    } else if (block.type === 'image_url' && block.image_url) {
+      var url = block.image_url.url || '';
+      var mediaType = 'image/jpeg';
+      var data = url;
+      // Parse data URL: data:image/png;base64,XXXX
+      var match = url.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mediaType = match[1];
+        data = match[2];
+      }
+      parts.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: data },
+      });
+    }
+  }
+  return parts.length ? parts : String(content || '');
+}
+
 function chatCompletionAnthropic(conn, settings, messages, opts) {
   opts = opts || {};
   var onDelta = opts.onDelta;
@@ -1671,7 +1700,7 @@ function chatCompletionAnthropic(conn, settings, messages, opts) {
     } else if (m.role === 'user' || m.role === 'assistant') {
       anthroMessages.push({
         role: m.role,
-        content: typeof m.content === 'string' ? m.content : String(m.content || ''),
+        content: convertToAnthropicContent(m.content),
       });
     }
     // skip tool roles for now
@@ -3085,8 +3114,19 @@ function buildMessages(opts) {
       messages.push({ role: m.role, content: m.content });
     }
   }
-  messages.push({ role: 'user', content: opts.userText });
+  // Build user message — multimodal if images are attached
+  var userContent = buildUserContent(opts.userText, opts.images);
+  messages.push({ role: 'user', content: userContent });
   return messages;
+}
+
+function buildUserContent(text, images) {
+  if (!images || !images.length) return text || '';
+  var parts = [{ type: 'text', text: text || '' }];
+  for (var i = 0; i < images.length; i++) {
+    parts.push({ type: 'image_url', image_url: { url: images[i] } });
+  }
+  return parts;
 }
 
 function formatPageContext(opts) {
@@ -3427,6 +3467,7 @@ function startChat(message) {
           history: history,
           userText: userText,
           agentMode: agentMode,
+          images: message.images,
         });
 
         var onDelta = function (delta) {

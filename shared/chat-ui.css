@@ -578,3 +578,19 @@ a.tl-hit:hover {
   max-height: 180px;
 }
 
+/* User message images */
+.msg-user-imgs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.msg-user-img {
+  max-width: 140px;
+  max-height: 120px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
