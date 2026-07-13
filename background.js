@@ -2261,6 +2261,16 @@ function agentGlowTab(tabId, on) {
   }
 }
 
+/** Keep the Lantern chat tab focused so the conversation stays visible. */
+function refocusControllerTab(session) {
+  if (!session || session.sidebarMode) return Promise.resolve();
+  if (session.controllerTabId == null) return Promise.resolve();
+  return chrome.tabs
+    .update(session.controllerTabId, { active: true })
+    .then(function () { return true; })
+    .catch(function () { return false; });
+}
+
 /** Small delay after mutations so small models don't need to call browser_wait */
 function mutationDelay() {
   return new Promise(function (r) { setTimeout(r, 150); });
@@ -4260,12 +4270,12 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
     mcpBridge.tryReconnect();
   }
 });
-chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 });
+try { chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 }); } catch (e) {}
 
 chrome.runtime.onInstalled.addListener(function () {
   try {
     chrome.contextMenus.removeAll(function () {
-      chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 });
+      try { chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 }); } catch (e) {}
       try {
         chrome.contextMenus.create({
           id: 'lantern-ask',
