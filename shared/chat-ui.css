@@ -1,3 +1,7 @@
+.activity-chip.is-done .activity-preview {
+  visibility: hidden;
+}
+
 /* Shared: activity status + inline thinking/tool stream */
 .activity-chip {
   appearance: none;

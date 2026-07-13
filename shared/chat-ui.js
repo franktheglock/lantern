@@ -194,6 +194,8 @@ export function createReplyThread(container, opts = {}) {
   let open = false;
   let done = false;
   let startedAt = Date.now();
+  /** Absolute start — never reset, used for the final "Done · Xs" summary. */
+  let totalStartedAt = Date.now();
 
   /**
    * @typedef {object} TimelineEvent
@@ -406,7 +408,7 @@ export function createReplyThread(container, opts = {}) {
       stopElapsedTimer();
       const tools = events.filter((e) => e.type === 'tool').length;
       const thought = events.some((e) => e.type === 'thinking' && e.text);
-      const secs = elapsedSeconds();
+      const secs = Math.max(1, Math.round((Date.now() - totalStartedAt) / 1000));
       let line = 'Done';
       if (thought && tools) line = `Thought · ${tools} tool${tools === 1 ? '' : 's'} · ${secs}s`;
       else if (thought) line = `Thought for ${secs}s`;
