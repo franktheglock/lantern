@@ -134,14 +134,6 @@ async function init() {
     }
     glowPreviewStyle = document.createElement('style');
     glowPreviewStyle.textContent = `
-      @property --glow-angle {
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-      }
-      @keyframes lantern-glow-wave {
-        to { --glow-angle: 360deg; }
-      }
       @keyframes lantern-glow-pulse {
         0%, 100% {
           box-shadow:
@@ -150,8 +142,8 @@ async function init() {
         }
         50% {
           box-shadow:
-            inset 0 0 70px 32px rgba(255, 140, 0, 0.14),
-            inset 0 0 30px 10px rgba(255, 140, 0, 0.25);
+            inset 0 0 70px 32px rgba(255, 140, 0, 0.16),
+            inset 0 0 30px 10px rgba(255, 140, 0, 0.28);
         }
       }
       html::after {
@@ -161,33 +153,7 @@ async function init() {
         pointer-events: none;
         z-index: 2147483647;
         border-radius: 12px;
-        padding: 4px;
-        background:
-          radial-gradient(
-            ellipse 380px 240px at
-              calc(50% + 38% * cos(var(--glow-angle)))
-              calc(50% + 38% * sin(var(--glow-angle))),
-            rgba(255, 140, 0, 0.55) 0%,
-            rgba(255, 140, 0, 0.18) 35%,
-            transparent 65%
-          ),
-          conic-gradient(
-            from var(--glow-angle),
-            transparent 0%,
-            rgba(255, 140, 0, 0.65) 3%,
-            rgba(255, 140, 0, 0.35) 10%,
-            rgba(255, 140, 0, 0.12) 22%,
-            rgba(255, 140, 0, 0.03) 45%,
-            transparent 65%,
-            transparent 100%
-          );
-        animation:
-          lantern-glow-wave 5s linear infinite,
-          lantern-glow-pulse 2.5s ease-in-out infinite;
-        -webkit-mask:
-          linear-gradient(#000 0 0) content-box,
-          linear-gradient(#000 0 0);
-        -webkit-mask-composite: xor;
+        animation: lantern-glow-pulse 2.5s ease-in-out infinite;
       }
     `;
     document.documentElement.appendChild(glowPreviewStyle);
