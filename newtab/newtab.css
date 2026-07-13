@@ -210,6 +210,13 @@ body {
 .search-shell[data-mode='search'] .composer-bar {
   display: none;
 }
+/* Slimmer go button in search */
+.search-shell[data-mode='search'] .go-btn {
+  width: 32px;
+  height: 32px;
+  bottom: 6px;
+  border-radius: 8px;
+}
 .search-shell[data-mode='search'] #query {
   min-height: 0;
   max-height: 48px;
@@ -221,19 +228,18 @@ body {
   white-space: nowrap;
 }
 
-/* Go button: always at bottom-right */
+/* Go button: always at bottom-right in all modes */
 .search-shell .go-btn {
   position: absolute;
   bottom: 10px;
   right: 12px;
   z-index: 1;
   flex-shrink: 0;
-  transition: background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
-}
-/* Search mode: center vertically in the slim bar */
-.search-shell[data-mode='search'] .go-btn {
-  bottom: 50%;
-  transform: translateY(50%);
+  transition: background 0.25s ease, color 0.25s ease,
+              width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .search-shell:not([data-mode='search']) .composer-bar {
   padding-right: 50px;
