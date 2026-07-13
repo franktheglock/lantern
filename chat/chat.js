@@ -547,7 +547,7 @@ function renderImagePreviews() {
   if (!wrap) {
     wrap = document.createElement('div');
     wrap.className = 'image-previews';
-    input.parentElement.insertBefore(wrap, input.parentElement.querySelector('.composer-bar'));
+    input.parentElement.insertBefore(wrap, input);
   }
   wrap.innerHTML = '';
   attachedImages.forEach((img, i) => {
