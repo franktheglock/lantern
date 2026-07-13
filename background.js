@@ -2401,19 +2401,16 @@ function executeBrowserTool(settings, session, name, args, callId) {
     }
 
     if (name === 'browser_tabs_list') {
-      var idList = Object.keys(session.allowedTabIds).map(Number);
       return chrome.tabs.query({}).then(function (tabs) {
         var out = [];
         var i;
         for (i = 0; i < tabs.length; i++) {
-          if (idList.indexOf(tabs[i].id) !== -1) {
-            out.push({
-              tabId: tabs[i].id,
-              title: tabs[i].title || '',
-              url: tabs[i].url || '',
-              active: tabs[i].id === session.activeTabId,
-            });
-          }
+          out.push({
+            tabId: tabs[i].id,
+            title: tabs[i].title || '',
+            url: tabs[i].url || '',
+            active: tabs[i].id === session.activeTabId,
+          });
         }
         return JSON.stringify({ tabs: out, activeTabId: session.activeTabId });
       });
@@ -2447,10 +2444,11 @@ function executeBrowserTool(settings, session, name, args, callId) {
 
     if (name === 'browser_tabs_switch') {
       var switchId = Number(args.tabId);
-      if (!agentTabAllowed(session, switchId)) {
-        return Promise.resolve(JSON.stringify({ error: 'Tab not in agent session' }));
+      if (!switchId || isNaN(switchId)) {
+        return Promise.resolve(JSON.stringify({ error: 'Invalid tabId' }));
       }
-      // Logical switch only — do not activate the tab (keeps chat in front)
+      // Add to session if not already allowed
+      session.allowedTabIds[String(switchId)] = true;
       switchAgentTab(session, switchId);
       return refocusControllerTab(session).then(function () {
         return JSON.stringify({
