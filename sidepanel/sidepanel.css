@@ -1066,3 +1066,19 @@ body {
 .app.agent-layout .page-chip {
   display: none;
 }
+
+/* Agent mode: orange accent override */
+.app.agent-layout,
+[data-theme='dark'] .app.agent-layout {
+  --accent: #d4a55e;
+  --accent-soft: rgba(212, 165, 94, 0.18);
+  --accent-text: #e8c98a;
+  --accent-solid: #c4843e;
+}
+
+[data-theme='light'] .app.agent-layout {
+  --accent: #b87d2e;
+  --accent-soft: rgba(184, 125, 46, 0.14);
+  --accent-text: #8b5e1f;
+  --accent-solid: #a8702a;
+}
