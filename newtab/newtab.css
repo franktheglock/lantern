@@ -239,6 +239,11 @@ body {
   z-index: 1;
 }
 
+/* Make room for go button in composer bar */
+.search-shell:not([data-mode='search']) .composer-bar {
+  padding-right: 50px;
+}
+
 /* Composer bar transitions */
 .search-shell .composer-bar {
   transition: opacity 0.25s ease;
