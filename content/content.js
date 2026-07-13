@@ -428,6 +428,13 @@
     return { ok: true, url: location.href };
   }
 
+  function agentScroll(delta) {
+    var d = Number(delta) || 0;
+    if (!d) return { ok: false, error: 'Missing delta' };
+    window.scrollBy({ top: d, left: 0, behavior: 'smooth' });
+    return { ok: true, url: location.href, scrolled: d };
+  }
+
   function agentFind(query) {
     if (!query) return { ok: false, error: 'Missing query' };
     const q = query.toLowerCase();
@@ -491,6 +498,10 @@
     }
     if (msg.type === 'AGENT_PRESS') {
       sendResponse(agentPress(msg.key));
+      return true;
+    }
+    if (msg.type === 'AGENT_SCROLL') {
+      sendResponse(agentScroll(msg.delta));
       return true;
     }
     if (msg.type === 'AGENT_FIND') {

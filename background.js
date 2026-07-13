@@ -398,6 +398,17 @@ var TOOL_DEFS_AGENT = [
   {
     type: 'function',
     function: {
+      name: 'browser_scroll',
+      description: 'Scroll the active tab window by a pixel delta. Positive = down, negative = up. Default 500.',
+      parameters: {
+        type: 'object',
+        properties: { delta: { type: 'number', description: 'Pixels to scroll (positive down, negative up, default 500)' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'browser_find',
       description: 'Find text on the active agent tab. Returns snippets with surrounding context and element refs when the match falls inside a snapshotted interactive. Max 20 results.',
       parameters: {
@@ -2230,6 +2241,11 @@ function agentGlowTab(tabId, on) {
   }
 }
 
+/** Small delay after mutations so small models don't need to call browser_wait */
+function mutationDelay() {
+  return new Promise(function (r) { setTimeout(r, 150); });
+}
+
 function switchAgentTab(session, newTabId) {
   var oldTabId = session.activeTabId;
   session.activeTabId = newTabId;
@@ -2493,7 +2509,9 @@ function executeBrowserTool(settings, session, name, args, callId) {
 
       if (name === 'browser_click') {
         return sendToAgentTab(tabId, { type: 'AGENT_CLICK', ref: args.ref }).then(function (res) {
-          return JSON.stringify(res || { error: 'Click failed' });
+          return mutationDelay().then(function () {
+            return JSON.stringify(res || { error: 'Click failed' });
+          });
         });
       }
 
@@ -2504,16 +2522,29 @@ function executeBrowserTool(settings, session, name, args, callId) {
           text: args.text,
           clear: !!args.clear,
         }).then(function (res) {
-          return JSON.stringify(res || { error: 'Type failed' });
+          return mutationDelay().then(function () {
+            return JSON.stringify(res || { error: 'Type failed' });
+          });
         });
       }
 
       if (name === 'browser_press') {
         return sendToAgentTab(tabId, { type: 'AGENT_PRESS', key: args.key || 'Enter' }).then(
           function (res) {
-            return JSON.stringify(res || { error: 'Press failed' });
+            return mutationDelay().then(function () {
+              return JSON.stringify(res || { error: 'Press failed' });
+            });
           }
         );
+      }
+
+      if (name === 'browser_scroll') {
+        return sendToAgentTab(tabId, {
+          type: 'AGENT_SCROLL',
+          delta: args.delta ?? args.amount ?? 500,
+        }).then(function (res) {
+          return JSON.stringify(res || { error: 'Scroll failed' });
+        });
       }
 
       return JSON.stringify({ error: 'Unknown browser tool: ' + name });
@@ -4493,6 +4524,17 @@ var mcpBridge = (function () {
               return JSON.stringify({ error: (res && res.error) || 'Find failed' });
             }
             return JSON.stringify(res.result);
+          });
+        });
+        break;
+
+      case 'browser_scroll':
+        resultPromise = withActiveTab(function (tabId) {
+          return sendToAgentTab(tabId, {
+            type: 'AGENT_SCROLL',
+            delta: args.delta ?? args.amount ?? 500,
+          }).then(function (res) {
+            return JSON.stringify(res || { error: 'Scroll failed' });
           });
         });
         break;
