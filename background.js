@@ -4260,9 +4260,11 @@ chrome.alarms.onAlarm.addListener(function (alarm) {
     mcpBridge.tryReconnect();
   }
 });
+chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 }).catch(function () {});
 
 chrome.runtime.onInstalled.addListener(function () {
   try {
+    chrome.contextMenus.removeAll(function () {
     chrome.alarms.create('lantern-keepalive', { periodInMinutes: 1 });
   } catch (e) { /* ignore */ }
   try {
