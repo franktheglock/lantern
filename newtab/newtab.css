@@ -144,50 +144,40 @@ body {
 .search-shell {
   display: flex;
   flex-direction: column;
-  position: relative;
-}
-
-#query {
-  display: block;
-  width: 100%;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: 18px;
-  outline: none;
-  resize: none;
-  background: var(--bg-elevated);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 1.05rem;
-  line-height: 1.45;
-  min-height: 100px;
-  max-height: 320px;
-  padding: 14px 16px;
-  box-sizing: border-box;
+  padding: 12px 12px 10px;
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(0, 0, 0, 0.04);
   transition: border-color 0.15s, box-shadow 0.15s;
-  field-sizing: content;
+  position: relative;
 }
 
-#query:focus {
+.search-shell:focus-within {
   border-color: var(--accent);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.28),
     0 0 0 3px var(--accent-soft);
 }
 
-.search-shell[data-mode='search'] #query:focus {
-  border-color: var(--accent);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28), 0 0 0 3px var(--accent-soft);
-}
-.search-shell[data-mode='chat'] #query:focus {
-  border-color: #7b8fcf;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(91, 111, 176, 0.2);
-}
-.search-shell[data-mode='agent'] #query:focus {
-  border-color: #d4a55e;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28), 0 0 0 3px rgba(196, 132, 62, 0.2);
+#query {
+  display: block;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1.05rem;
+  line-height: 1.45;
+  min-height: 100px;
+  max-height: 320px;
+  padding: 4px 4px 0;
+  box-sizing: border-box;
+  field-sizing: content;
 }
 
 #query::placeholder {
@@ -207,14 +197,12 @@ body {
   display: none;
 }
 .search-shell[data-mode='search'] #query {
-  min-height: 48px;
-  max-height: 48px;
-  padding: 10px 16px;
+  min-height: 24px;
+  max-height: 24px;
+  padding: 0;
   line-height: 1.3;
   overflow: hidden;
   white-space: nowrap;
-  border-radius: 14px;
-  font-size: 1rem;
 }
 
 .search-shell .composer-bar .go-btn {
