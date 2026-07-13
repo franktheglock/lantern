@@ -121,6 +121,68 @@ async function init() {
     }
   });
 
+  // Agent glow preview button
+  let glowPreviewStyle = null;
+  document.getElementById('btn-glow-preview')?.addEventListener('click', () => {
+    const btn = document.getElementById('btn-glow-preview');
+    if (glowPreviewStyle) {
+      glowPreviewStyle.remove();
+      glowPreviewStyle = null;
+      btn.textContent = 'Preview agent glow';
+      btn.classList.remove('is-active');
+      return;
+    }
+    glowPreviewStyle = document.createElement('style');
+    glowPreviewStyle.textContent = `
+      @property --glow-angle {
+        syntax: '<angle>';
+        initial-value: 0deg;
+        inherits: false;
+      }
+      @keyframes lantern-glow-wave {
+        to { --glow-angle: 360deg; }
+      }
+      @keyframes lantern-glow-pulse {
+        0%, 100% {
+          box-shadow:
+            inset 0 0 50px 24px rgba(255, 140, 0, 0.06),
+            inset 0 0 20px 8px rgba(255, 140, 0, 0.1);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 70px 32px rgba(255, 140, 0, 0.14),
+            inset 0 0 30px 10px rgba(255, 140, 0, 0.25);
+        }
+      }
+      html::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2147483647;
+        border-radius: 12px;
+        padding: 3px;
+        background: conic-gradient(
+          from var(--glow-angle),
+          transparent 0%,
+          rgba(255, 140, 0, 0.55) 1.5%,
+          transparent 4%,
+          transparent 100%
+        );
+        animation:
+          lantern-glow-wave 5s linear infinite,
+          lantern-glow-pulse 2.5s ease-in-out infinite;
+        -webkit-mask:
+          linear-gradient(#000 0 0) content-box,
+          linear-gradient(#000 0 0);
+        -webkit-mask-composite: xor;
+      }
+    `;
+    document.documentElement.appendChild(glowPreviewStyle);
+    btn.textContent = 'Hide glow';
+    btn.classList.add('is-active');
+  });
+
   // Search provider toggle
   const searchProvider = document.getElementById('searchProvider');
   if (searchProvider) {

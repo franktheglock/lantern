@@ -392,6 +392,12 @@ textarea {
   color: var(--text);
 }
 
+.btn-secondary.is-active {
+  background: rgba(196, 132, 62, 0.18);
+  border-color: rgba(196, 132, 62, 0.4);
+  color: #daa45a;
+}
+
 .btn-danger {
   margin-top: 4px;
   color: var(--danger);
