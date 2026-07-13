@@ -630,6 +630,18 @@
       @keyframes lantern-glow-wave {
         to { --glow-angle: 360deg; }
       }
+      @keyframes lantern-glow-pulse {
+        0%, 100% {
+          box-shadow:
+            inset 0 0 50px 24px rgba(255, 140, 0, 0.06),
+            inset 0 0 20px 8px rgba(255, 140, 0, 0.1);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 70px 32px rgba(255, 140, 0, 0.14),
+            inset 0 0 30px 10px rgba(255, 140, 0, 0.25);
+        }
+      }
       html::after {
         content: '';
         position: fixed;
@@ -645,7 +657,9 @@
           transparent 4%,
           transparent 100%
         );
-        animation: lantern-glow-wave 5s linear infinite;
+        animation:
+          lantern-glow-wave 5s linear infinite,
+          lantern-glow-pulse 2.5s ease-in-out infinite;
         -webkit-mask:
           linear-gradient(#000 0 0) content-box,
           linear-gradient(#000 0 0);
