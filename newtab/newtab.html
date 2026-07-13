@@ -53,10 +53,30 @@
               autocomplete="off"
             ></textarea>
             <div class="composer-bar">
-              <button type="button" class="model-trigger-nt" id="btn-model" title="Choose model" aria-label="Choose model">
-                <span class="model-trigger-icon-nt" id="model-trigger-icon"></span>
-                <span class="model-trigger-label-nt" id="model-label">Model</span>
-              </button>
+              <div class="mp-nt" id="model-picker-nt">
+                <button type="button" class="mp-trigger-nt" id="mp-trigger-nt" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="mp-trigger-kicker">Model</span>
+                  <span class="mp-trigger-value" id="mp-value-nt">Server default</span>
+                  <span class="mp-chevron" aria-hidden="true"></span>
+                </button>
+                <div class="mp-panel-nt" id="mp-panel-nt" hidden role="dialog" aria-label="Choose model">
+                  <div class="mp-view-nt" id="mp-view-providers-nt">
+                    <div class="mp-panel-head">
+                      <span class="mp-panel-title">Provider</span>
+                    </div>
+                    <div class="mp-list" id="mp-provider-list-nt" role="listbox" aria-label="Providers"></div>
+                  </div>
+                  <div class="mp-view-nt" id="mp-view-models-nt" hidden>
+                    <div class="mp-panel-head">
+                      <button type="button" class="mp-back-nt" id="mp-back-nt" aria-label="Back to providers">
+                        <span aria-hidden="true">←</span><span>Providers</span>
+                      </button>
+                      <span class="mp-panel-title" id="mp-models-title-nt">Models</span>
+                    </div>
+                    <div class="mp-list" id="mp-model-list-nt" role="listbox" aria-label="Models"></div>
+                  </div>
+                </div>
+              </div>
               <button type="button" class="attach-btn" id="btn-attach" title="Attach image" aria-label="Attach image">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                   <path d="M12 5v14M5 12h14" />

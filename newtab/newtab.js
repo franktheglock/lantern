@@ -20,9 +20,15 @@ const modeTabs = document.querySelectorAll('.mode-tab');
 const suggestDropdown = document.getElementById('suggest-dropdown');
 const btnAttach = document.getElementById('btn-attach');
 const fileInput = document.getElementById('file-input');
-const btnModel = document.getElementById('btn-model');
-const modelTriggerIcon = document.getElementById('model-trigger-icon');
-const modelLabel = document.getElementById('model-label');
+// Model picker
+const mpTriggerNt = document.getElementById('mp-trigger-nt');
+const mpPanelNt = document.getElementById('mp-panel-nt');
+const mpValueNt = document.getElementById('mp-value-nt');
+const mpProviderListNt = document.getElementById('mp-provider-list-nt');
+const mpModelListNt = document.getElementById('mp-model-list-nt');
+const mpViewProvidersNt = document.getElementById('mp-view-providers-nt');
+const mpViewModelsNt = document.getElementById('mp-view-models-nt');
+const mpBackNt = document.getElementById('mp-back-nt');
 const contextTabs = document.getElementById('context-tabs');
 const contextList = document.getElementById('context-list');
 const contextCount = document.getElementById('context-count');
@@ -97,7 +103,7 @@ async function init() {
     applyMode();
     form.addEventListener('submit', onSubmit);
     query.addEventListener('keydown', onKeyDown);
-    query.addEventListener('input', onSuggestInput);
+    query.addEventListener('input', onQueryInput);
     query.addEventListener('blur', () => setTimeout(closeSuggest, 150));
     claimSearchFocus();
     return;
@@ -120,9 +126,25 @@ async function init() {
   btnAttach?.addEventListener('click', () => fileInput?.click());
   fileInput?.addEventListener('change', onFilesSelected);
 
-  // Model picker trigger
-  btnModel?.addEventListener('click', () => chrome.runtime.openOptionsPage());
-  loadModelLabel();
+  // Model picker
+  loadModelPicker().catch(() => {});
+
+  // Model picker
+  mpTriggerNt?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = mpTriggerNt.getAttribute('aria-expanded') === 'true';
+    if (open) closeModelPicker();
+    else { loadModelPicker().then(() => openModelPicker()); }
+  });
+  mpBackNt?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showProviderView();
+  });
+  document.addEventListener('click', (e) => {
+    if (mpPanelNt && !mpPanelNt.hidden && !mpPanelNt.contains(e.target) && e.target !== mpTriggerNt) {
+      closeModelPicker();
+    }
+  });
 
   // Context tabs
   loadContextTabs();
@@ -281,8 +303,9 @@ function onQueryInput() {
 }
 
 function autoResize() {
+  if (chatMode === 'search') return;
   query.style.height = 'auto';
-  query.style.height = Math.min(query.scrollHeight, 200) + 'px';
+  query.style.height = Math.min(query.scrollHeight, 320) + 'px';
 }
 
 async function fetchSuggestions(q) {
@@ -397,26 +420,92 @@ function clearAttachments() {
   btnAttach?.classList.remove('has-image');
 }
 
-// ── Model label ──
+// ── Model picker ──
 
-async function loadModelLabel() {
+let mpOpenNt = false;
+let modelProvidersNt = [];
+let activeProviderIdNt = '';
+
+async function loadModelPicker() {
   try {
-    const res = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
-    const s = res?.settings || res || {};
-    selectedProvider = s.provider || 'local';
-    selectedModel = s.model || '';
-    updateModelLabel();
-    // Also load provider icon
-    const iconRes = await chrome.runtime.sendMessage({ type: 'PROVIDER_ICON', provider: selectedProvider });
-    if (iconRes?.iconUrl) {
-      modelTriggerIcon.innerHTML = `<img src="${iconRes.iconUrl}" alt="" width="14" height="14" style="display:block" />`;
+    const res = await chrome.runtime.sendMessage({ type: 'LIST_PROVIDERS' });
+    if (res?.ok) {
+      modelProvidersNt = res.providers || [];
+      activeProviderIdNt = res.activeProvider || selectedProvider || 'local';
+      if (res.activeModel) selectedModel = res.activeModel;
+      selectedProvider = res.activeProvider || 'local';
     }
-  } catch { /* ignore */ }
+  } catch { /* fall back to defaults */ }
+  updateModelTriggerLabel();
 }
 
-function updateModelLabel() {
+function updateModelTriggerLabel() {
   const label = selectedModel || 'Server default';
-  modelLabel.textContent = label.length > 14 ? label.slice(0, 12) + '…' : label;
+  mpValueNt.textContent = label.length > 16 ? label.slice(0, 14) + '…' : label;
+}
+
+function openModelPicker() {
+  mpOpenNt = true;
+  mpPanelNt.hidden = false;
+  mpTriggerNt.setAttribute('aria-expanded', 'true');
+  showProviderView();
+}
+
+function closeModelPicker() {
+  mpOpenNt = false;
+  mpPanelNt.hidden = true;
+  mpTriggerNt.setAttribute('aria-expanded', 'false');
+}
+
+function showProviderView() {
+  mpViewProvidersNt.hidden = false;
+  mpViewModelsNt.hidden = true;
+  activeProviderIdNt = '';
+  renderProviderList();
+}
+
+function renderProviderList() {
+  mpProviderListNt.innerHTML = '';
+  modelProvidersNt.forEach((p) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mp-item';
+    if (p.id === selectedProvider) btn.classList.add('is-active');
+    btn.innerHTML = `<span>${p.label}</span>`;
+    btn.addEventListener('click', () => selectProvider(p));
+    mpProviderListNt.appendChild(btn);
+  });
+}
+
+function selectProvider(prov) {
+  selectedProvider = prov.id;
+  if (!prov.models?.length) {
+    selectedModel = '';
+    updateModelTriggerLabel();
+    closeModelPicker();
+    return;
+  }
+  activeProviderIdNt = prov.id;
+  mpViewProvidersNt.hidden = true;
+  mpViewModelsNt.hidden = false;
+  renderModelList(prov);
+}
+
+function renderModelList(prov) {
+  mpModelListNt.innerHTML = '';
+  (prov.models || []).forEach((m) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mp-item';
+    if (m.id === selectedModel && prov.id === selectedProvider) btn.classList.add('is-active');
+    btn.innerHTML = `<span>${m.label || m.id}</span>`;
+    btn.addEventListener('click', () => {
+      selectedModel = m.id;
+      updateModelTriggerLabel();
+      closeModelPicker();
+    });
+    mpModelListNt.appendChild(btn);
+  });
 }
 
 // ── Context tabs ──
