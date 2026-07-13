@@ -151,7 +151,9 @@ body {
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.28),
     0 0 0 1px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s, box-shadow 0.15s,
+    border-radius 0.3s ease, padding 0.3s ease;
   position: relative;
 }
 
@@ -229,9 +231,16 @@ body {
   transition: none;
 }
 
-/* Chat/Agent mode: hide standalone go button */
-.search-shell:not([data-mode='search']) .go-btn {
-  display: none;
+/* Chat/Agent mode: go button at bottom-right */
+.search-shell .go-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+}
+
+/* Search mode: go button inline */
+.search-shell[data-mode='search'] .go-btn {
+  position: static;
 }
 
 /* Composer bar transitions */
@@ -241,6 +250,37 @@ body {
 .search-shell[data-mode='search'] .composer-bar {
   opacity: 0;
   pointer-events: none;
+}
+
+/* Mode toggle inside composer bar */
+.mode-toggle-nt {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-soft);
+}
+
+.mode-btn-nt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.mode-btn-nt.is-active {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Model picker (matches chat style) */
