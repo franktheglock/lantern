@@ -593,6 +593,10 @@
       @keyframes lantern-glow-wave {
         to { --lantern-angle: 360deg; }
       }
+      @keyframes lantern-glow-pulse {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+      }
       html::after {
         content: '';
         position: fixed;
@@ -604,9 +608,9 @@
         background: conic-gradient(
           from var(--lantern-angle),
           transparent,
-          rgba(255, 140, 0, 0.7) 10%,
-          rgba(255, 140, 0, 0.9) 15%,
-          rgba(255, 140, 0, 0.3) 20%,
+          rgba(255, 140, 0, 0.8) 10%,
+          rgba(255, 140, 0, 1) 15%,
+          rgba(255, 140, 0, 0.4) 20%,
           transparent 30%
         );
         -webkit-mask:
@@ -614,7 +618,9 @@
           linear-gradient(#000 0 0);
         -webkit-mask-composite: xor;
         mask-composite: exclude;
-        animation: lantern-glow-wave 3s linear infinite;
+        animation:
+          lantern-glow-wave 3s linear infinite,
+          lantern-glow-pulse 2s ease-in-out infinite;
       }
     `;
     document.documentElement.appendChild(agentGlowStyle);
