@@ -109,8 +109,8 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  background: #c4843e;
+  box-shadow: 0 0 0 3px rgba(212, 165, 94, 0.2);
   flex-shrink: 0;
 }
 

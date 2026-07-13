@@ -94,9 +94,9 @@ body {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #c4843e;
   opacity: 0.85;
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px rgba(212, 165, 94, 0.2);
 }
 
 .brand-name {
