@@ -1013,7 +1013,7 @@ function toggleTheme() {
 }
 
 function onKeyDown(e) {
-  // Dropdown navigation
+  // Dropdown navigation (Enter to select suggestion)
   if (!suggestDropdown.hidden) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -1039,6 +1039,13 @@ function onKeyDown(e) {
       selectSuggestion(suggestIndex);
       return;
     }
+  }
+
+  // Enter → submit (unless Shift for newline)
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    return;
   }
 
   // Tab → cycle mode (Search → Chat → Agent → Search…)
