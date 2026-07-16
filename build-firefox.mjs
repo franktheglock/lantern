@@ -50,9 +50,13 @@ writeFileSync(mp, JSON.stringify(m, null, 2) + '\n');
 const bg = join(dist, 'background.js');
 let code = readFileSync(bg, 'utf8');
 code += `
-// Firefox overrides
-function openSidePanel() { return Promise.resolve({ ok: true, opened: false }); }
-function initSidePanelBehavior() {}
+// Firefox overrides — only apply when sidePanel API missing
+if (!chrome.sidePanel || !chrome.sidePanel.open) {
+  var origOpen = openSidePanel;
+  var origInit = initSidePanelBehavior;
+  openSidePanel = function() { return Promise.resolve({ ok: true, opened: false }); };
+  initSidePanelBehavior = function() {};
+}
 `;
 writeFileSync(bg, code);
 
