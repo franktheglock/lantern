@@ -157,6 +157,7 @@ async function init() {
   bindModelPicker();
   bindModeToggle();
   bindThreadDock();
+  bindContextTabsPopup();
 
   // Context tabs
   loadChatContextTabs();
@@ -623,11 +624,11 @@ function renderChatContextTabs() {
         selectedContextTabs.add(tab.id);
         btn.classList.add('is-active');
       }
-      if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
+      if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size}` : '0';
     });
     list.appendChild(btn);
   });
-  if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size} selected` : '';
+  if (count) count.textContent = selectedContextTabs.size ? `${selectedContextTabs.size}` : '0';
 }
 
 async function getSelectedContextTabInfo() {
@@ -936,6 +937,25 @@ function bindThreadDock() {
   threadDockToggle?.addEventListener('click', () => {
     const expanded = threadDockToggle.getAttribute('aria-expanded') !== 'false';
     setThreadDockExpanded(!expanded);
+  });
+}
+
+function bindContextTabsPopup() {
+  const trigger = document.getElementById('context-tabs-trigger');
+  const popup = document.getElementById('context-tabs-popup');
+  const wrap = document.getElementById('context-tabs-chat');
+  if (!trigger || !popup || !wrap) return;
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = trigger.getAttribute('aria-expanded') === 'true';
+    popup.hidden = open;
+    trigger.setAttribute('aria-expanded', !open);
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) {
+      popup.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+    }
   });
 }
 

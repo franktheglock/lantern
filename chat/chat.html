@@ -83,11 +83,14 @@
             <div class="composer-dock">
               <p class="agent-notice" id="agent-notice" hidden>Agent mode — works in background tabs so this chat stays open. Stop anytime.</p>
               <div class="context-tabs-chat" id="context-tabs-chat" hidden>
-                <div class="context-tabs-head">
-                  <span class="context-tabs-label">Context tabs</span>
-                  <span class="context-tabs-count" id="context-count-chat"></span>
+                <button type="button" class="context-tabs-trigger" id="context-tabs-trigger" title="Add page context" aria-haspopup="true" aria-expanded="false">
+                  <span class="context-tabs-label">Context</span>
+                  <span class="context-tabs-count" id="context-count-chat">0</span>
+                  <span class="context-tabs-chevron" aria-hidden="true">▾</span>
+                </button>
+                <div class="context-tabs-popup" id="context-tabs-popup" hidden>
+                  <div class="context-tabs-list" id="context-list-chat"></div>
                 </div>
-                <div class="context-tabs-list" id="context-list-chat"></div>
               </div>
               <div class="composer-shell">
                 <button type="button" class="attach-btn" id="btn-attach" title="Attach image" aria-label="Attach image">

@@ -1128,78 +1128,121 @@ body {
 
 /* Context tabs (chat page) */
 .context-tabs-chat {
+  position: relative;
   margin-bottom: 6px;
   padding: 0 2px;
 }
 
 .context-tabs-chat[hidden] { display: none; }
 
-.context-tabs-chat .context-tabs-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.context-tabs-chat .context-tabs-label {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.context-tabs-chat .context-tabs-count {
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--accent-text);
-}
-
-.context-tabs-chat .context-tabs-list {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.context-tabs-chat .context-tab {
+.context-tabs-trigger {
   appearance: none;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
   color: var(--text-muted);
   font-family: var(--font);
-  font-size: 0.68rem;
-  padding: 3px 8px;
+  font-size: 0.7rem;
+  padding: 3px 10px;
   border-radius: 999px;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 180px;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-.context-tabs-chat .context-tab:hover {
+.context-tabs-trigger:hover {
   border-color: var(--border-strong);
   color: var(--text);
 }
 
-.context-tabs-chat .context-tab.is-active {
+.context-tabs-trigger[aria-expanded="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-text);
 }
 
-.context-tabs-chat .context-tab-fav {
-  width: 12px;
-  height: 12px;
+.context-tabs-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: inherit;
+}
+
+.context-tabs-count {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: inherit;
+}
+
+.context-tabs-chevron {
+  font-size: 0.55rem;
+  opacity: 0.6;
+}
+
+.context-tabs-popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 2px;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  z-index: 30;
+}
+
+.context-tabs-popup[hidden] { display: none; }
+
+.context-tabs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.78rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s;
+}
+
+.context-tab:hover {
+  background: var(--bg-soft);
+}
+
+.context-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.context-tab-fav {
+  width: 14px;
+  height: 14px;
   border-radius: 2px;
   flex-shrink: 0;
 }
 
-.context-tabs-chat .context-tab-title {
+.context-tab-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
 }
 
 /* Mode toggle + agent banner */
